@@ -1,4 +1,4 @@
-const API_URL = "https://tw-eqsl-server.onrender.com";
+const API_URL = "https://tw-whisky-serveur.onrender.com";
 
 // -----------------------------
 // SECTIONS
@@ -32,7 +32,7 @@ async function loadGallery() {
     box.innerHTML = "Chargement…";
 
     try {
-        const res = await fetch(API_URL + "");
+        const res = await fetch(API_URL + "/qsl");
         const list = await res.json();
 
         if (!list.length) return box.innerHTML = "Aucune QSL pour l'instant";
@@ -40,7 +40,7 @@ async function loadGallery() {
         box.innerHTML = "";
         list.forEach(q => {
             const img = document.createElement("img");
-            img.src = q.thumb;
+            img.src = q.thumb || q.url;
             img.title = q.indicatif;
             box.appendChild(img);
         });
@@ -48,7 +48,6 @@ async function loadGallery() {
         box.innerHTML = "Erreur de chargement.";
     }
 }
-loadGallery();
 
 // -----------------------------
 // CREATION + UPLOAD
@@ -106,7 +105,7 @@ document.getElementById("btnSearch").onclick = async () => {
             const wrap = document.createElement("div");
 
             const img = document.createElement("img");
-            img.src = q.thumb;
+            img.src = q.thumb || q.url;
 
             const a = document.createElement("a");
             a.href = q.url;
@@ -123,4 +122,3 @@ document.getElementById("btnSearch").onclick = async () => {
         box.innerHTML = "Erreur réseau";
     }
 };
-
