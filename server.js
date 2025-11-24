@@ -79,18 +79,38 @@ app.post("/upload", async (req, res) => {
         const panelWidth = 380;
 
         const svg = `
-        <svg width="${panelWidth}" height="${TH}">
-            <rect width="100%" height="100%" fill="white"/>
-            <text x="30" y="80" font-size="48" font-weight="700" fill="black">${req.body.indicatif}</text>
-            <text x="30" y="150" font-size="32" fill="black">Date : ${req.body.date}</text>
-            <text x="30" y="200" font-size="32" fill="black">UTC : ${req.body.time}</text>
-            <text x="30" y="260" font-size="32" fill="black">Bande : ${req.body.band}</text>
-            <text x="30" y="310" font-size="32" fill="black">Mode : ${req.body.mode}</text>
-            <text x="30" y="360" font-size="32" fill="black">Report : ${req.body.report}</text>
-            <text x="30" y="420" font-size="30" fill="black">${req.body.note || ""}</text>
-        </svg>
-        `;
-        const svgBuffer = Buffer.from(svg);
+<svg width="${panelWidth}" height="${TH}" xmlns="http://www.w3.org/2000/svg">
+
+    <rect width="100%" height="100%" fill="white"/>
+
+    <!-- INDICATIF -->
+    <text x="30" y="70" font-size="54" font-weight="700" fill="black">
+        ${req.body.indicatif}
+    </text>
+
+    <!-- LIGNE SEPARATION -->
+    <line x1="20" y1="90" x2="${panelWidth - 20}" y2="90" stroke="black" stroke-width="3"/>
+
+    <!-- INFOS QSO -->
+    <text x="30" y="150" font-size="36" fill="black">📅 Date : ${req.body.date}</text>
+    <text x="30" y="200" font-size="36" fill="black">⏱ UTC : ${req.body.time}</text>
+
+    <text x="30" y="260" font-size="36" fill="black">📡 Bande : ${req.body.band}</text>
+    <text x="30" y="310" font-size="36" fill="black">🎙 Mode : ${req.body.mode}</text>
+
+    <text x="30" y="370" font-size="36" fill="black">📶 Report : ${req.body.report}</text>
+
+    <!-- NOTE MULTILIGNE -->
+    <foreignObject x="25" y="430" width="${panelWidth - 50}" height="400">
+        <div xmlns="http://www.w3.org/1999/xhtml" 
+             style="font-size:32px; color:black; line-height:38px; font-family:Arial;">
+            ${req.body.note || ""}
+        </div>
+    </foreignObject>
+
+</svg>
+`;
+
 
         // -----------------------------------------
         // LOAD USER IMAGE (resize to fit template)
