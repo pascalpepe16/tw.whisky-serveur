@@ -119,8 +119,9 @@ document.getElementById("btnSearch").onclick = async () => {
       // téléchargement direct
       btn.onclick = () => {
         const a = document.createElement("a");
-        a.href = q.url;
-        a.download = `${q.indicatif}_${q.date}.jpg`;
+       a.href = `${API_URL}/direct?url=${encodeURIComponent(q.url)}&name=${q.indicatif}_${q.date}.jpg`;
+a.target = "_blank";
+
         document.body.appendChild(a);
         a.click();
         a.remove();
