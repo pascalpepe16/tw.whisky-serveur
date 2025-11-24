@@ -187,6 +187,33 @@ app.get("/download/:call", async (req, res) => {
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });
+// -----------------------------------------
+// TELECHARGEMENT DIRECT FORCE
+// -----------------------------------------
+app.get("/direct", async (req, res) => {
+  try {
+    const url = req.query.url;
+    const name = req.query.name || "qsl.jpg";
+
+    if (!url) return res.status(400).send("Missing URL");
+
+    // Télécharge l'image Cloudinary et renvoie avec header "attachment"
+    const fetch = (await import("node-fetch")).default;
+    const img = await fetch(url);
+
+    const buffer = await img.arrayBuffer();
+
+    res.setHeader("Content-Type", "image/jpeg");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${name}"`
+    );
+
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    res.status(500).send("Erreur download");
+  }
+});
 
 // -----------------------------------------
 const PORT = process.env.PORT || 10000;
