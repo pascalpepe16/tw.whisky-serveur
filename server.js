@@ -38,7 +38,7 @@ const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
 cloudinary.config({
     cloud_name: "dqpvrfjeu",
     api_key: "825331418956744",
-    api_secret: "EF3kOwRM3a9sQL22r83-LRVh4nw"
+    api_secret: "XJKCIOnfRfD8sFXYuDjNrB-1zpE"
 });
 
 // -----------------------------------------
