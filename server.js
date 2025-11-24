@@ -34,37 +34,22 @@ app.use(express.static(path.join(__dirname, "public")));
 const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
 
 // -----------------------------------------
-//  CLOUDINARY CONFIG
+// CLOUDINARY
 cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "dqpvrfjeu",
-    api_key: process.env.CLOUDINARY_API_KEY || "825331418956744",
-    api_secret: process.env.CLOUDINARY_API_SECRET || "XJKCIOnfRfD8sFXYuDjNrB-1zpE"
+    cloud_name: "dqpvrfjeu",
+    api_key: "794295772667991",
+    api_secret: "EF3kOwRM3a9sQL22r83-LRVh4nw"
 });
 
 // -----------------------------------------
-// STOCKAGE EN RAM (Option B)
+// STOCKAGE QSL EN RAM
 let qslList = [];
 
-// -----------------------------------------
-// UTIL - coupe une string en lignes (maxChars par ligne, max total)
-function wrapText(text, maxChars = 40, maxLines = 6) {
-    if (!text) return [];
-    text = text.replace(/\r\n/g, "\n").replace(/\t/g, " ");
-    const words = text.split(/\s+/);
-    const lines = [];
-    let cur = "";
-    for (const w of words) {
-        if ((cur + " " + w).trim().length <= maxChars) {
-            cur = (cur + " " + w).trim();
-        } else {
-            lines.push(cur);
-            cur = w;
-            if (lines.length >= maxLines) break;
-        }
-    }
-    if (cur && lines.length < maxLines) lines.push(cur);
-    return lines;
-}
+// Escape XML
+const escapeXml = (str) => str.replace(/[<>&'"]/g, c => ({
+    "<": "&lt;", ">": "&gt;",
+    "&": "&amp;", "'": "&apos;", "\"": "&quot;"
+}[c]));
 
 // -----------------------------------------
 // UPLOAD + GENERATION QSL
@@ -74,81 +59,80 @@ app.post("/upload", async (req, res) => {
         if (!req.body.indicatif)
             return res.json({ success: false, error: "Indicatif manquant" });
 
-        // Template personnalisé ou par défaut
         let templatePath = LOCAL_TEMPLATE;
         if (req.files?.template) templatePath = req.files.template.tempFilePath;
 
-        // Image principale obligatoire
         if (!req.files || !req.files.qsl)
             return res.json({ success: false, error: "Aucune image QSL fournie" });
 
         const file = req.files.qsl;
 
-        // =============================
-        // CHARGER TEMPLATE DE BASE
-        // =============================
+        // Template info
         const template = sharp(templatePath);
         const tMeta = await template.metadata();
-        const TW = tMeta.width || 1400;
-        const TH = tMeta.height || 900;
+        const TW = tMeta.width;
+        const TH = tMeta.height;
 
-        // =============================
-        // PANEL WIDTH
-        // =============================
-        const panelWidth = 380; // panneau droit
+        // PANEL
+        const panelWidth = 380;
 
-        // =============================
-        // PREPARER LA NOTE MULTI-LIGNES (max 120 chars total)
-        // =============================
-        const noteRaw = (req.body.note || "").toString().trim().slice(0, 120);
-        const lines = wrapText(noteRaw, 36, 8); // ~36 chars/line for 30px font
+        // --------------------------
+        // NOTE MULTI-LIGNES SPLIT
+        // --------------------------
+        const noteText = (req.body.note || "").trim().substring(0, 120); // 120 chars max
+        const words = noteText.split(" ");
+        let lines = [];
+        let line = "";
 
-        // Construire les lignes SVG
+        for (let w of words) {
+            if ((line + w).length > 26) { // 26 chars per line
+                lines.push(line);
+                line = w + " ";
+            } else line += w + " ";
+        }
+        if (line.trim() !== "") lines.push(line);
+
+        // Construct note SVG block
         let noteSvg = "";
-        const baseY = 430;
-        const lineHeight = 36;
+        const baseY = 400;
+        const lineHeight = 34;
+
         for (let i = 0; i < lines.length; i++) {
             const y = baseY + i * lineHeight;
-            noteSvg += `<text x="30" y="${y}" font-size="30" fill="black">${escapeXml(lines[i])}</text>\n`;
+            noteSvg += `<text x="25" y="${y}" font-size="28" fill="black">${escapeXml(lines[i])}</text>`;
         }
 
-        // =============================
-        // SVG PANNEAU TEXTE (sans foreignObject)
-        // =============================
+        // -------------------------
+        // SVG FINAL
+        // -------------------------
         const svg = `
-        <svg width="${panelWidth}" height="${TH}" xmlns="http://www.w3.org/2000/svg">
+        <svg width="${panelWidth}" height="${TH}">
             <rect width="100%" height="100%" fill="white"/>
-            <text x="30" y="70" font-size="54" font-weight="700" fill="black">${escapeXml(req.body.indicatif)}</text>
-            <line x1="20" y1="90" x2="${panelWidth - 20}" y2="90" stroke="black" stroke-width="3"/>
-            <text x="30" y="150" font-size="36" fill="black">Date : ${escapeXml(req.body.date || "")}</text>
-            <text x="30" y="200" font-size="36" fill="black">UTC : ${escapeXml(req.body.time || "")}</text>
-            <text x="30" y="260" font-size="36" fill="black">Bande : ${escapeXml(req.body.band || "")}</text>
-            <text x="30" y="310" font-size="36" fill="black">Mode : ${escapeXml(req.body.mode || "")}</text>
-            <text x="30" y="370" font-size="36" fill="black">Report : ${escapeXml(req.body.report || "")}</text>
+            <text x="25" y="70" font-size="50" font-weight="700">${escapeXml(req.body.indicatif)}</text>
+            <text x="25" y="150" font-size="32">Date : ${escapeXml(req.body.date)}</text>
+            <text x="25" y="200" font-size="32">UTC : ${escapeXml(req.body.time)}</text>
+            <text x="25" y="260" font-size="32">Bande : ${escapeXml(req.body.band)}</text>
+            <text x="25" y="310" font-size="32">Mode : ${escapeXml(req.body.mode)}</text>
+            <text x="25" y="360" font-size="32">Report : ${escapeXml(req.body.report)}</text>
+
             ${noteSvg}
         </svg>
         `;
-
-        // IMPORTANT → création du buffer SVG
         const svgBuffer = Buffer.from(svg);
 
-        // =============================
-        // USER IMAGE : adapt contain onto TWxTH background (no deformation)
-        // We'll create a background of TWxTH filled with a white bg and center the image
-        // =============================
-        const userImgMeta = await sharp(file.tempFilePath).metadata();
-        const userBuf = await sharp(file.tempFilePath)
-            .resize({
-                width: TW,
-                height: TH,
+        // -------------------------
+        // USER IMAGE (CONTAIN)
+        // -------------------------
+        const userImg = await sharp(file.tempFilePath)
+            .resize(TW, TH, {
                 fit: "contain",
-                background: { r: 255, g: 255, b: 255 }
+                background: "white"
             })
             .toBuffer();
 
-        // =============================
-        // COMPOSITION FINALE
-        // =============================
+        // -------------------------
+        // FINAL COMPOSITING
+        // -------------------------
         const final = await sharp({
             create: {
                 width: TW + panelWidth,
@@ -158,15 +142,15 @@ app.post("/upload", async (req, res) => {
             }
         })
             .composite([
-                { input: userBuf, left: 0, top: 0 },
+                { input: userImg, left: 0, top: 0 },
                 { input: svgBuffer, left: TW, top: 0 }
             ])
             .jpeg({ quality: 92 })
             .toBuffer();
 
-        // =============================
-        // UPLOAD CLOUDINARY
-        // =============================
+        // -------------------------
+        // CLOUDINARY STREAM UPLOAD
+        // -------------------------
         const uploadStream = cloudinary.uploader.upload_stream(
             { folder: "TW-eQSL" },
             (err, result) => {
@@ -174,9 +158,9 @@ app.post("/upload", async (req, res) => {
 
                 const entry = {
                     id: Date.now(),
-                    indicatif: req.body.indicatif,
+                    indicatif: req.body.indicatif.toUpperCase(),
                     url: result.secure_url,
-                    thumb: result.secure_url.replace("/upload/", "/upload/w_300/"),
+                    thumb: result.secure_url.replace("/upload/", "/upload/w_350/"),
                     date: req.body.date
                 };
 
@@ -195,41 +179,20 @@ app.post("/upload", async (req, res) => {
 
 // -----------------------------------------
 // GALERIE
-app.get("/qsl", (req, res) => {
-    res.json(qslList);
-});
+app.get("/qsl", (req, res) => res.json(qslList));
 
 // -----------------------------------------
 // DOWNLOAD PAR INDICATIF
 app.get("/download/:call", (req, res) => {
     const call = req.params.call.toUpperCase();
-    res.json(qslList.filter(q => q.indicatif.toUpperCase() === call));
+    res.json(qslList.filter(q => q.indicatif === call));
 });
 
 // -----------------------------------------
-// ROUTE PAR DEFAUT
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
 // -----------------------------------------
-// START SERVER
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () =>
-    console.log("TW-eQSL server running on port " + PORT)
-);
-
-// -----------------------------
-// Small helper to escape XML text inside SVG
-function escapeXml(unsafe) {
-    if (!unsafe) return "";
-    return unsafe.replace(/[&<>"']/g, function (c) {
-        switch (c) {
-            case "&": return "&amp;";
-            case "<": return "&lt;";
-            case ">": return "&gt;";
-            case '"': return "&quot;";
-            case "'": return "&#39;";
-        }
-    });
-}
+app.listen(PORT, () => console.log("TW-eQSL server running on port " + PORT));
