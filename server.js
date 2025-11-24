@@ -34,15 +34,15 @@ app.use(express.static(path.join(__dirname, "public")));
 const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
 
 // -----------------------------------------
-//  CLOUDINARY
+//  CLOUDINARY CONFIG
 cloudinary.config({
     cloud_name: "dqpvrfjeu",
-    api_key: "825331418956744",
-    api_secret: "XJKCIOnfRfD8sFXYuDjNrB-1zpE"
+    api_key: "794295772667991",
+    api_secret: "EF3kOwRM3a9sQL22r83-LRVh4nw"
 });
 
 // -----------------------------------------
-// STOCKAGE QSL EN RAM (Option B)
+// STOCKAGE EN RAM (Option B)
 let qslList = [];
 
 // -----------------------------------------
@@ -53,73 +53,75 @@ app.post("/upload", async (req, res) => {
         if (!req.body.indicatif)
             return res.json({ success: false, error: "Indicatif manquant" });
 
-        // User template ?
+        // Template personnalisé ou par défaut
         let templatePath = LOCAL_TEMPLATE;
 
         if (req.files?.template) {
-            // Remplace le template si l'utilisateur en fournit un
             templatePath = req.files.template.tempFilePath;
         }
 
-        // Image principale (obligatoire)
+        // Image principale obligatoire
         if (!req.files || !req.files.qsl)
             return res.json({ success: false, error: "Aucune image QSL fournie" });
 
         const file = req.files.qsl;
 
-        // -----------------------------------------
-        // LOAD TEMPLATE
+        // =============================
+        // CHARGER TEMPLATE DE BASE
+        // =============================
         const template = sharp(templatePath);
         const tMeta = await template.metadata();
         const TW = tMeta.width;
         const TH = tMeta.height;
 
-        // -----------------------------------------
-        // TEXT PANEL (cadre blanc à droite)
+        // =============================
+        // SVG PANNEAU TEXTE
+        // =============================
         const panelWidth = 380;
 
         const svg = `
-<svg width="${panelWidth}" height="${TH}" xmlns="http://www.w3.org/2000/svg">
+        <svg width="${panelWidth}" height="${TH}" xmlns="http://www.w3.org/2000/svg">
 
-    <rect width="100%" height="100%" fill="white"/>
+            <rect width="100%" height="100%" fill="white"/>
 
-    <!-- INDICATIF -->
-    <text x="30" y="70" font-size="54" font-weight="700" fill="black">
-        ${req.body.indicatif}
-    </text>
+            <text x="30" y="70" font-size="54" font-weight="700" fill="black">
+                ${req.body.indicatif}
+            </text>
 
-    <!-- LIGNE SEPARATION -->
-    <line x1="20" y1="90" x2="${panelWidth - 20}" y2="90" stroke="black" stroke-width="3"/>
+            <line x1="20" y1="90" x2="${panelWidth - 20}" y2="90"
+                  stroke="black" stroke-width="3"/>
 
-    <!-- INFOS QSO -->
-    <text x="30" y="150" font-size="36" fill="black">📅 Date : ${req.body.date}</text>
-    <text x="30" y="200" font-size="36" fill="black">⏱ UTC : ${req.body.time}</text>
+            <text x="30" y="150" font-size="36" fill="black">Date : ${req.body.date}</text>
+            <text x="30" y="200" font-size="36" fill="black">UTC : ${req.body.time}</text>
 
-    <text x="30" y="260" font-size="36" fill="black">📡 Bande : ${req.body.band}</text>
-    <text x="30" y="310" font-size="36" fill="black">🎙 Mode : ${req.body.mode}</text>
+            <text x="30" y="260" font-size="36" fill="black">Bande : ${req.body.band}</text>
+            <text x="30" y="310" font-size="36" fill="black">Mode : ${req.body.mode}</text>
 
-    <text x="30" y="370" font-size="36" fill="black">📶 Report : ${req.body.report}</text>
+            <text x="30" y="370" font-size="36" fill="black">Report : ${req.body.report}</text>
 
-    <!-- NOTE MULTILIGNE -->
-    <foreignObject x="25" y="430" width="${panelWidth - 50}" height="400">
-        <div xmlns="http://www.w3.org/1999/xhtml" 
-             style="font-size:32px; color:black; line-height:38px; font-family:Arial;">
-            ${req.body.note || ""}
-        </div>
-    </foreignObject>
+            <foreignObject x="25" y="430" width="${panelWidth - 50}" height="400">
+                <div xmlns="http://www.w3.org/1999/xhtml"
+                     style="font-size:30px;color:black;line-height:35px;font-family:Arial;">
+                     ${req.body.note || ""}
+                </div>
+            </foreignObject>
 
-</svg>
-`;
+        </svg>
+        `;
 
+        // IMPORTANT → création du buffer SVG
+        const svgBuffer = Buffer.from(svg);
 
-        // -----------------------------------------
-        // LOAD USER IMAGE (resize to fit template)
+        // =============================
+        // REDIMENSION IMAGE UTILISATEUR
+        // =============================
         const userImg = await sharp(file.tempFilePath)
             .resize(TW, TH, { fit: "cover" })
             .toBuffer();
 
-        // -----------------------------------------
-        // FINAL COMPOSITION
+        // =============================
+        // COMPOSITION FINALE
+        // =============================
         const final = await sharp({
             create: {
                 width: TW + panelWidth,
@@ -135,12 +137,14 @@ app.post("/upload", async (req, res) => {
             .jpeg({ quality: 92 })
             .toBuffer();
 
-        // -----------------------------------------
-        // CLOUDINARY UPLOAD (BUFFER STREAM)
+        // =============================
+        // UPLOAD CLOUDINARY
+        // =============================
         const uploadStream = cloudinary.uploader.upload_stream(
             { folder: "TW-eQSL" },
             (err, result) => {
-                if (err) return res.json({ success: false, error: err.message });
+                if (err)
+                    return res.json({ success: false, error: err.message });
 
                 const entry = {
                     id: Date.now(),
@@ -151,6 +155,7 @@ app.post("/upload", async (req, res) => {
                 };
 
                 qslList.push(entry);
+
                 return res.json({ success: true, qsl: entry });
             }
         );
@@ -177,7 +182,7 @@ app.get("/download/:call", (req, res) => {
 });
 
 // -----------------------------------------
-// ROUTE PAR DEFAUT (Render)
+// ROUTE PAR DEFAUT
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public/index.html"));
 });
@@ -188,4 +193,3 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
     console.log("TW-eQSL server running on port " + PORT)
 );
-
