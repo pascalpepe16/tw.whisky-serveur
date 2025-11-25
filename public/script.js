@@ -1,6 +1,8 @@
 const API_URL = "https://tw-whisky-serveur.onrender.com";
 
-// --------------- NAVIGATION ---------------
+// -----------------------------
+// SECTIONS
+// -----------------------------
 function showSection(id) {
     document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
@@ -22,7 +24,9 @@ function verifyPassword() {
     } else alert("Mot de passe incorrect !");
 }
 
-// --------------- GALERIE ---------------
+// -----------------------------
+// GALERIE
+// -----------------------------
 async function loadGallery() {
     const box = document.getElementById("galleryContent");
     box.innerHTML = "Chargement…";
@@ -31,7 +35,10 @@ async function loadGallery() {
         const res = await fetch(API_URL + "/qsl");
         const list = await res.json();
 
-        if (!list.length) return box.innerHTML = "Aucune QSL.";
+        if (!list.length) {
+            box.innerHTML = "Aucune QSL pour l'instant";
+            return;
+        }
 
         box.innerHTML = "";
         list.forEach(q => {
@@ -45,13 +52,14 @@ async function loadGallery() {
     }
 }
 
-// --------------- CREATION QSL ---------------
+// -----------------------------
+// UPLOAD + GENERATION QSL
+// -----------------------------
 document.getElementById("genForm").onsubmit = async (e) => {
     e.preventDefault();
 
     const formData = new FormData(e.target);
     const preview = document.getElementById("genPreview");
-
     preview.innerHTML = "Génération…";
 
     try {
@@ -70,13 +78,15 @@ document.getElementById("genForm").onsubmit = async (e) => {
         preview.innerHTML = `<img src="${data.qsl.url}">`;
 
         loadGallery();
-
-    } catch (err) {
+    } 
+    catch (err) {
         preview.innerHTML = "Erreur réseau";
     }
 };
 
-// --------------- TELECHARGEMENT DIRECT ---------------
+// -----------------------------
+// DOWNLOAD DIRECT
+// -----------------------------
 document.getElementById("btnSearch").onclick = async () => {
     const call = document.getElementById("dlCall").value.trim().toUpperCase();
     const box = document.getElementById("dlPreview");
@@ -86,21 +96,41 @@ document.getElementById("btnSearch").onclick = async () => {
     box.innerHTML = "Recherche…";
 
     try {
-        const res = await fetch(API_URL + "/qsl");
+        const res = await fetch(API_URL + "/download/" + call);
         const list = await res.json();
 
-        const filtered = list.filter(q => q.indicatif.toUpperCase() === call);
-
-        if (!filtered.length) {
+        if (!list.length) {
             box.innerHTML = "Aucune QSL trouvée.";
             return;
         }
 
-        const qsl = filtered[filtered.length - 1];
+        box.innerHTML = "";
 
-        window.location.href = API_URL + "/direct-download/" + qsl.id;
+        list.forEach(q => {
+            const wrap = document.createElement("div");
 
-        box.innerHTML = "<p>Téléchargement lancé !</p>";
+            const img = document.createElement("img");
+            img.src = q.thumb;
+
+            wrap.appendChild(img);
+
+            // 🔥 Téléchargement immédiat sans ouverture
+            const btn = document.createElement("button");
+            btn.textContent = "Télécharger";
+            btn.className = "primary";
+
+            btn.onclick = () => {
+                const a = document.createElement("a");
+                a.href = q.url;
+                a.download = `${q.indicatif}_${q.date}.jpg`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            };
+
+            wrap.appendChild(btn);
+            box.appendChild(wrap);
+        });
 
     } catch (e) {
         box.innerHTML = "Erreur réseau";
