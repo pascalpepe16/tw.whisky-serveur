@@ -45,7 +45,20 @@ async function loadGallery() {
             const img = document.createElement("img");
             img.src = q.thumb;
             img.title = q.indicatif;
-            box.appendChild(img);
+
+            const previewBtn = document.createElement("button");
+            previewBtn.textContent = "Visualiser";
+            previewBtn.onclick = () => openPreview(q.url);
+
+            const downloadBtn = document.createElement("button");
+            downloadBtn.textContent = "Télécharger";
+            downloadBtn.onclick = () => downloadQSL(q.url);
+
+            const div = document.createElement("div");
+            div.appendChild(img);
+            div.appendChild(previewBtn);
+            div.appendChild(downloadBtn);
+            box.appendChild(div);
         });
     } catch (e) {
         box.innerHTML = "Erreur de chargement.";
@@ -53,7 +66,50 @@ async function loadGallery() {
 }
 
 // -----------------------------
-// UPLOAD + GENERATION
+// OUVERTURE PRÉVISUALISATION
+// -----------------------------
+function openPreview(url) {
+    const imgPreview = document.createElement("img");
+    imgPreview.src = url;
+    imgPreview.style.maxWidth = "100%";
+    imgPreview.style.maxHeight = "500px";
+
+    const previewBox = document.createElement("div");
+    previewBox.style.position = "fixed";
+    previewBox.style.top = "0";
+    previewBox.style.left = "0";
+    previewBox.style.width = "100%";
+    previewBox.style.height = "100%";
+    previewBox.style.backgroundColor = "rgba(0,0,0,0.8)";
+    previewBox.style.display = "flex";
+    previewBox.style.justifyContent = "center";
+    previewBox.style.alignItems = "center";
+    previewBox.style.zIndex = "1000";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "Fermer";
+    closeBtn.style.position = "absolute";
+    closeBtn.style.top = "10px";
+    closeBtn.style.right = "10px";
+    closeBtn.onclick = () => document.body.removeChild(previewBox);
+
+    previewBox.appendChild(imgPreview);
+    previewBox.appendChild(closeBtn);
+    document.body.appendChild(previewBox);
+}
+
+// -----------------------------
+// TÉLÉCHARGEMENT DIRECT
+// -----------------------------
+function downloadQSL(url) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = url.split("/").pop(); // Utilise le nom du fichier pour le téléchargement
+    a.click();
+}
+
+// -----------------------------
+// UPLOAD + GENERATION QSL
 // -----------------------------
 document.getElementById("genForm").onsubmit = async (e) => {
     e.preventDefault();
@@ -78,14 +134,14 @@ document.getElementById("genForm").onsubmit = async (e) => {
         preview.innerHTML = `<img src="${data.qsl.url}">`;
 
         loadGallery();
-    }
+    } 
     catch (err) {
         preview.innerHTML = "Erreur réseau";
     }
 };
 
 // -----------------------------
-// DOWNLOAD : VISUALISER + TELECHARGER
+// DOWNLOAD PAR INDICATIF
 // -----------------------------
 document.getElementById("btnSearch").onclick = async () => {
     const call = document.getElementById("dlCall").value.trim().toUpperCase();
@@ -96,65 +152,33 @@ document.getElementById("btnSearch").onclick = async () => {
     box.innerHTML = "Recherche…";
 
     try {
-        const res = await fetch(API_URL + "/qsl");
-        const all = await res.json();
-
-        // liste filtrée par indicatif
-        const list = all.filter(q => q.indicatif.toUpperCase() === call);
+        const res = await fetch(API_URL + "/download/" + call);
+        const list = await res.json();
 
         if (!list.length) {
             box.innerHTML = "Aucune QSL trouvée.";
             return;
         }
 
-        box.innerHTML = `<h3>${list.length} QSL trouvée(s) pour ${call}</h3>`;
+        box.innerHTML = "";
 
         list.forEach(q => {
-            const div = document.createElement("div");
-            div.style.margin = "10px";
-            div.style.padding = "10px";
-            div.style.background = "rgba(0,0,0,0.5)";
-            div.style.borderRadius = "8px";
-            div.style.display = "inline-block";
-            div.style.textAlign = "center";
+            const wrap = document.createElement("div");
 
-            // miniature
             const img = document.createElement("img");
             img.src = q.thumb;
-            img.style.width = "200px";
-            img.style.borderRadius = "6px";
 
-            // bouton Visualiser
-            const viewBtn = document.createElement("button");
-            viewBtn.textContent = "Visualiser";
-            viewBtn.className = "primary";
-            viewBtn.style.marginTop = "10px";
-            viewBtn.onclick = () => {
-                window.open(q.url, "_blank");
-            };
+            const a = document.createElement("a");
+            a.href = q.url;
+            a.download = `${q.indicatif}_${q.date}.jpg`;
+            a.textContent = "Télécharger";
+            a.className = "primary";
 
-            // bouton Télécharger
-            const dlBtn = document.createElement("button");
-            dlBtn.textContent = "Télécharger";
-            dlBtn.className = "primary";
-            dlBtn.style.marginLeft = "10px";
+            wrap.appendChild(img);
+            wrap.appendChild(a);
 
-            dlBtn.onclick = () => {
-                const a = document.createElement("a");
-                a.href = API_URL + "/download/" + q.indicatif;
-                a.setAttribute("download", `${q.indicatif}_${q.date}.jpg`);
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            };
-
-            div.appendChild(img);
-            div.appendChild(document.createElement("br"));
-            div.appendChild(viewBtn);
-            div.appendChild(dlBtn);
-            box.appendChild(div);
+            box.appendChild(wrap);
         });
-
     } catch (e) {
         box.innerHTML = "Erreur réseau";
     }
