@@ -1,11 +1,6 @@
-// -----------------------------------
-// CONFIG API
-// -----------------------------------
-const API_URL = "https://tw-eqsl-server.onrender.com";
+const API_URL = "https://tw-whisky-serveur.onrender.com";
 
-// -----------------------------------
-// GESTION DES SECTIONS
-// -----------------------------------
+// --------------- NAVIGATION ---------------
 function showSection(id) {
     document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
@@ -27,9 +22,7 @@ function verifyPassword() {
     } else alert("Mot de passe incorrect !");
 }
 
-// -----------------------------------
-// GALERIE
-// -----------------------------------
+// --------------- GALERIE ---------------
 async function loadGallery() {
     const box = document.getElementById("galleryContent");
     box.innerHTML = "Chargement…";
@@ -38,15 +31,12 @@ async function loadGallery() {
         const res = await fetch(API_URL + "/qsl");
         const list = await res.json();
 
-        if (!list.length) {
-            box.innerHTML = "Aucune QSL pour l'instant";
-            return;
-        }
+        if (!list.length) return box.innerHTML = "Aucune QSL.";
 
         box.innerHTML = "";
         list.forEach(q => {
             const img = document.createElement("img");
-            img.src = q.thumb || q.url;
+            img.src = q.thumb;
             img.title = q.indicatif;
             box.appendChild(img);
         });
@@ -55,12 +45,7 @@ async function loadGallery() {
     }
 }
 
-// Charge galerie au démarrage
-loadGallery();
-
-// -----------------------------------
-// CREATION / UPLOAD QSL
-// -----------------------------------
+// --------------- CREATION QSL ---------------
 document.getElementById("genForm").onsubmit = async (e) => {
     e.preventDefault();
 
@@ -91,9 +76,7 @@ document.getElementById("genForm").onsubmit = async (e) => {
     }
 };
 
-// -----------------------------------
-// TELECHARGEMENT DIRECT
-// -----------------------------------
+// --------------- TELECHARGEMENT DIRECT ---------------
 document.getElementById("btnSearch").onclick = async () => {
     const call = document.getElementById("dlCall").value.trim().toUpperCase();
     const box = document.getElementById("dlPreview");
@@ -115,16 +98,9 @@ document.getElementById("btnSearch").onclick = async () => {
 
         const qsl = filtered[filtered.length - 1];
 
-        // Téléchargement direct comme un fichier
-        const a = document.createElement("a");
-        a.href = qsl.url;
-        a.download = `${qsl.indicatif}_${qsl.date}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        window.location.href = API_URL + "/direct-download/" + qsl.id;
 
-        // Feedback visuel
-        box.innerHTML = `<p>Téléchargement lancé !</p>`;
+        box.innerHTML = "<p>Téléchargement lancé !</p>";
 
     } catch (e) {
         box.innerHTML = "Erreur réseau";
