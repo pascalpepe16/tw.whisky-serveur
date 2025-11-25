@@ -7,8 +7,8 @@ import express from "express";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import sharp from "sharp";
+import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
-import https from "https";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -28,10 +28,10 @@ app.use(fileUpload({
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Fichiers publics
+// Static folder
 app.use(express.static(path.join(__dirname, "public")));
 
-// Chemin du template local
+// Local template
 const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
 
 // -----------------------------------------
@@ -43,78 +43,108 @@ cloudinary.config({
 });
 
 // -----------------------------------------
-// STOCKAGE EN RAM DES QSL
+// RAM storage of QSL
 let qslList = [];
 
 // -----------------------------------------
-// UPLOAD + GENERATION QSL
+// TEXT WRAPPING FUNCTION
+function wrapText(text, max = 40) {
+    if (!text) return "";
+    const words = text.split(" ");
+    let lines = [];
+    let line = "";
+
+    words.forEach(w => {
+        if ((line + w).length > max) {
+            lines.push(line);
+            line = "";
+        }
+        line += w + " ";
+    });
+
+    if (line.trim() !== "") lines.push(line);
+
+    return lines.join("\n");
+}
+
+// -----------------------------------------
+// UPLOAD & GENERATE QSL
 // -----------------------------------------
 app.post("/upload", async (req, res) => {
     try {
         if (!req.body.indicatif)
             return res.json({ success: false, error: "Indicatif manquant" });
 
-        let templatePath = LOCAL_TEMPLATE;
+        if (!req.files || !req.files.qsl)
+            return res.json({ success: false, error: "Aucune image QSL fournie" });
 
+        const imgFile = req.files.qsl;
+
+        // user template ?
+        let templatePath = LOCAL_TEMPLATE;
         if (req.files?.template) {
             templatePath = req.files.template.tempFilePath;
         }
 
-        if (!req.files || !req.files.qsl)
-            return res.json({ success: false, error: "Aucune image QSL fournie" });
+        // -----------------------------
+        // LOAD USER IMAGE + RESIZE MAX 1400x900
+        const baseImg = sharp(imgFile.tempFilePath).resize({
+            width: 1400,
+            height: 900,
+            fit: "inside"
+        });
 
-        const file = req.files.qsl;
+        const meta = await baseImg.metadata();
+        const W = meta.width;
+        const H = meta.height;
 
-        // TEMPLATE
-        const template = sharp(templatePath);
-        const tMeta = await template.metadata();
-        const TW = tMeta.width;
-        const TH = tMeta.height;
+        // -----------------------------
+        // PANEL FIXED WIDTH
+        const panelWidth = 350;
 
-        // ----------- NOTE WRAP (120 caractères max) -----------
-        const note = (req.body.note || "")
-            .replace(/(.{40})/g, "$1\n")
-            .substring(0, 120);
+        // -----------------------------
+        // NOTE WRAP
+        const noteWrapped = wrapText(req.body.note, 32);
 
-        // ----------- SVG PANEL TEXTE -----------
-        const panelWidth = 380;
-
+        // -----------------------------
+        // SVG TEXT PANEL
         const svg = `
-        <svg width="${panelWidth}" height="${TH}">
-            <rect width="100%" height="100%" fill="white"/>
-            <text x="20" y="70" font-size="46" font-weight="700" fill="black">${req.body.indicatif}</text>
-            <text x="20" y="130" font-size="32" fill="black">Date : ${req.body.date}</text>
-            <text x="20" y="180" font-size="32" fill="black">UTC : ${req.body.time}</text>
-            <text x="20" y="230" font-size="32" fill="black">Bande : ${req.body.band}</text>
-            <text x="20" y="280" font-size="32" fill="black">Mode : ${req.body.mode}</text>
-            <text x="20" y="330" font-size="32" fill="black">Report : ${req.body.report}</text>
-            <text x="20" y="390" font-size="26" fill="black">${note}</text>
-        </svg>
-        `;
+<svg width="${panelWidth}" height="${H}">
+    <rect width="100%" height="100%" fill="white"/>
+    <text x="20" y="60" font-size="42" font-weight="700" fill="black">${req.body.indicatif}</text>
+
+    <text x="20" y="130" font-size="28" fill="black">Date : ${req.body.date}</text>
+    <text x="20" y="170" font-size="28" fill="black">UTC  : ${req.body.time}</text>
+    <text x="20" y="210" font-size="28" fill="black">Bande : ${req.body.band}</text>
+    <text x="20" y="250" font-size="28" fill="black">Mode : ${req.body.mode}</text>
+    <text x="20" y="290" font-size="28" fill="black">Report : ${req.body.report}</text>
+
+    <text x="20" y="360" font-size="24" fill="black">${noteWrapped}</text>
+</svg>`;
+
         const svgBuffer = Buffer.from(svg);
 
-        // ----------- IMAGE UTILISATEUR (contain, pas déformée) -----------
-        const userImg = await sharp(file.tempFilePath)
-            .resize(TW, TH, { fit: "contain", background: "white" })
-            .toBuffer();
+        const userBuffer = await baseImg.toBuffer();
 
-        // ----------- COMPOSITION FINALE -----------
+        // -----------------------------
+        // FINAL COMPOSITION
         const final = await sharp({
             create: {
-                width: TW + panelWidth,
-                height: TH,
+                width: W + panelWidth,
+                height: H,
                 channels: 3,
                 background: "white"
             }
         })
             .composite([
-                { input: userImg, left: 0, top: 0 },
-                { input: svgBuffer, left: TW, top: 0 }
+                { input: userBuffer, left: 0, top: 0 },
+                { input: svgBuffer, left: W, top: 0 }
             ])
-            .jpeg({ quality: 90 })
+            .jpeg({ quality: 92 })
             .toBuffer();
 
-        // ----------- UPLOAD CLOUDINARY -----------
+        // -----------------------------
+        // CLOUDINARY UPLOAD stream
         const uploadStream = cloudinary.uploader.upload_stream(
             { folder: "TW-eQSL" },
             (err, result) => {
@@ -143,36 +173,28 @@ app.post("/upload", async (req, res) => {
 });
 
 // -----------------------------------------
-// GALERIE
+// GALLERY
 app.get("/qsl", (req, res) => {
     res.json(qslList);
 });
 
 // -----------------------------------------
-// TELECHARGEMENT DIRECT
-// -----------------------------------------
-app.get("/direct-download/:id", (req, res) => {
-    const id = req.params.id;
-    const qsl = qslList.find(q => String(q.id) === String(id));
+// DIRECT DOWNLOAD
+app.get("/download/:call", async (req, res) => {
+    const call = req.params.call.toUpperCase();
+    const list = qslList.filter(q => q.indicatif.toUpperCase() === call);
 
-    if (!qsl) return res.status(404).send("Not found");
-
-    https.get(qsl.url, fileRes => {
-        res.setHeader("Content-Disposition",
-            `attachment; filename="${qsl.indicatif}_${qsl.date}.jpg"`
-        );
-        fileRes.pipe(res);
-    });
+    res.json(list);
 });
 
 // -----------------------------------------
-// ROUTE PAR DEFAUT
+// FRONTEND DEFAULT ROUTE
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
 // -----------------------------------------
-// START SERVER
+// SERVER
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
     console.log("TW-eQSL server running on port " + PORT)
