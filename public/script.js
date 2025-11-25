@@ -1,8 +1,11 @@
-const API_URL = "https://tw-whisky-serveur.onrender.com";
+// -----------------------------------
+// CONFIG API
+// -----------------------------------
+const API_URL = "https://tw-eqsl-server.onrender.com";
 
-// -----------------------------
-// SECTIONS
-// -----------------------------
+// -----------------------------------
+// GESTION DES SECTIONS
+// -----------------------------------
 function showSection(id) {
     document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
@@ -24,9 +27,9 @@ function verifyPassword() {
     } else alert("Mot de passe incorrect !");
 }
 
-// -----------------------------
+// -----------------------------------
 // GALERIE
-// -----------------------------
+// -----------------------------------
 async function loadGallery() {
     const box = document.getElementById("galleryContent");
     box.innerHTML = "Chargement…";
@@ -35,12 +38,15 @@ async function loadGallery() {
         const res = await fetch(API_URL + "/qsl");
         const list = await res.json();
 
-        if (!list.length) return box.innerHTML = "Aucune QSL pour l'instant";
+        if (!list.length) {
+            box.innerHTML = "Aucune QSL pour l'instant";
+            return;
+        }
 
         box.innerHTML = "";
         list.forEach(q => {
             const img = document.createElement("img");
-            img.src = q.thumb;
+            img.src = q.thumb || q.url;
             img.title = q.indicatif;
             box.appendChild(img);
         });
@@ -48,11 +54,13 @@ async function loadGallery() {
         box.innerHTML = "Erreur de chargement.";
     }
 }
+
+// Charge galerie au démarrage
 loadGallery();
 
-// -----------------------------
-// CREATION + UPLOAD
-// -----------------------------
+// -----------------------------------
+// CREATION / UPLOAD QSL
+// -----------------------------------
 document.getElementById("genForm").onsubmit = async (e) => {
     e.preventDefault();
 
@@ -75,15 +83,17 @@ document.getElementById("genForm").onsubmit = async (e) => {
         }
 
         preview.innerHTML = `<img src="${data.qsl.url}">`;
+
         loadGallery();
+
     } catch (err) {
         preview.innerHTML = "Erreur réseau";
     }
 };
 
-// -----------------------------
-// DOWNLOAD DIRECT
-// -----------------------------
+// -----------------------------------
+// TELECHARGEMENT DIRECT
+// -----------------------------------
 document.getElementById("btnSearch").onclick = async () => {
     const call = document.getElementById("dlCall").value.trim().toUpperCase();
     const box = document.getElementById("dlPreview");
@@ -93,31 +103,29 @@ document.getElementById("btnSearch").onclick = async () => {
     box.innerHTML = "Recherche…";
 
     try {
-        const res = await fetch(API_URL + "/download/" + call);
+        const res = await fetch(API_URL + "/qsl");
         const list = await res.json();
 
-        if (!list.length) {
+        const filtered = list.filter(q => q.indicatif.toUpperCase() === call);
+
+        if (!filtered.length) {
             box.innerHTML = "Aucune QSL trouvée.";
             return;
         }
 
-        box.innerHTML = "";
-        list.forEach(q => {
-            const wrap = document.createElement("div");
+        const qsl = filtered[filtered.length - 1];
 
-            const img = document.createElement("img");
-            img.src = q.thumb;
+        // Téléchargement direct comme un fichier
+        const a = document.createElement("a");
+        a.href = qsl.url;
+        a.download = `${qsl.indicatif}_${qsl.date}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
 
-            const a = document.createElement("a");
-            a.href = `${API_URL}/direct?url=${encodeURIComponent(q.url)}&name=${q.indicatif}_${q.date}.jpg`;
-            a.textContent = "Télécharger";
-            a.className = "primary";
+        // Feedback visuel
+        box.innerHTML = `<p>Téléchargement lancé !</p>`;
 
-            wrap.appendChild(img);
-            wrap.appendChild(a);
-
-            box.appendChild(wrap);
-        });
     } catch (e) {
         box.innerHTML = "Erreur réseau";
     }
