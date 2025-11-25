@@ -89,7 +89,7 @@ app.post("/upload", async (req, res) => {
         // -----------------------------
         // LOAD USER IMAGE + RESIZE MAX 1400x900
         const baseImg = sharp(imgFile.tempFilePath).resize({
-            width: 1500,
+            width: 1400,
             height: 900,
             fit: "inside"
         });
