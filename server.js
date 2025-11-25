@@ -1,13 +1,12 @@
 // -----------------------------------------
-//  TW eQSL – Serveur Render Compatible
-//  Sharp + Cloudinary + Génération QSL
+//  TW eQSL – Serveur Render + Cloudinary Only
+//  Version OPTION B – Zéro RAM, Zéro Perte
 // -----------------------------------------
 
 import express from "express";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import sharp from "sharp";
-import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -23,18 +22,11 @@ app.use(fileUpload({
     tempFileDir: "/tmp/"
 }));
 
-// -----------------------------------------
 // PATHS
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Static folder
 app.use(express.static(path.join(__dirname, "public")));
 
-// Local template
-const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
-
-// -----------------------------------------
 // CLOUDINARY
 cloudinary.config({
     cloud_name: "dqpvrfjeu",
@@ -42,33 +34,30 @@ cloudinary.config({
     api_secret: "XJKCIOnfRfD8sFXYuDjNrB-1zpE"
 });
 
-// -----------------------------------------
-// RAM storage of QSL
-let qslList = [];
+// Cloudinary Tag
+const TAG = "TWQSL";
 
 // -----------------------------------------
-// TEXT WRAPPING FUNCTION
-function wrapText(text, max = 40) {
+// NOTE WRAP
+function wrap(text, max = 32) {
     if (!text) return "";
     const words = text.split(" ");
-    let lines = [];
+    const lines = [];
     let line = "";
 
-    words.forEach(w => {
+    for (const w of words) {
         if ((line + w).length > max) {
-            lines.push(line);
+            lines.push(line.trim());
             line = "";
         }
         line += w + " ";
-    });
-
-    if (line.trim() !== "") lines.push(line);
-
+    }
+    if (line.trim()) lines.push(line.trim());
     return lines.join("\n");
 }
 
 // -----------------------------------------
-// UPLOAD & GENERATE QSL
+// UPLOAD + GENERATION QSL
 // -----------------------------------------
 app.post("/upload", async (req, res) => {
     try {
@@ -78,57 +67,40 @@ app.post("/upload", async (req, res) => {
         if (!req.files || !req.files.qsl)
             return res.json({ success: false, error: "Aucune image QSL fournie" });
 
-        const imgFile = req.files.qsl;
-
-        // user template ?
-        let templatePath = LOCAL_TEMPLATE;
-        if (req.files?.template) {
-            templatePath = req.files.template.tempFilePath;
-        }
-
-        // -----------------------------
-        // LOAD USER IMAGE + RESIZE MAX 1400x900
-        const baseImg = sharp(imgFile.tempFilePath).resize({
+        // ----------- Chargement image utilisateur -------------
+        const baseImg = sharp(req.files.qsl.tempFilePath).resize({
             width: 1400,
             height: 900,
-            fit: "inside"
+            fit: "inside",
+            background: "white"
         });
 
         const meta = await baseImg.metadata();
         const W = meta.width;
         const H = meta.height;
 
-        // -----------------------------
-        // PANEL FIXED WIDTH
         const panelWidth = 350;
+        const noteWrapped = wrap(req.body.note);
 
-        // -----------------------------
-        // NOTE WRAP
-        const noteWrapped = wrapText(req.body.note, 32);
-
-        // -----------------------------
-        // SVG TEXT PANEL
+        // ----------- SVG panneaux -------------------
         const svg = `
 <svg width="${panelWidth}" height="${H}">
     <rect width="100%" height="100%" fill="white"/>
-    <text x="20" y="60" font-size="42" font-weight="700" fill="black">${req.body.indicatif}</text>
+    <text x="20" y="60" font-size="42" font-weight="700">${req.body.indicatif}</text>
+    <text x="20" y="125" font-size="28">Date : ${req.body.date}</text>
+    <text x="20" y="165" font-size="28">UTC  : ${req.body.time}</text>
+    <text x="20" y="205" font-size="28">Bande : ${req.body.band}</text>
+    <text x="20" y="245" font-size="28">Mode : ${req.body.mode}</text>
+    <text x="20" y="285" font-size="28">Report : ${req.body.report}</text>
 
-    <text x="20" y="130" font-size="28" fill="black">Date : ${req.body.date}</text>
-    <text x="20" y="170" font-size="28" fill="black">UTC  : ${req.body.time}</text>
-    <text x="20" y="210" font-size="28" fill="black">Bande : ${req.body.band}</text>
-    <text x="20" y="250" font-size="28" fill="black">Mode : ${req.body.mode}</text>
-    <text x="20" y="290" font-size="28" fill="black">Report : ${req.body.report}</text>
-
-    <text x="20" y="360" font-size="24" fill="black">${noteWrapped}</text>
+    <text x="20" y="360" font-size="24">${noteWrapped}</text>
 </svg>`;
-
         const svgBuffer = Buffer.from(svg);
 
         const userBuffer = await baseImg.toBuffer();
 
-        // -----------------------------
-        // FINAL COMPOSITION
-        const final = await sharp({
+        // ----------- Composition finale -------------------
+        const finalBuffer = await sharp({
             create: {
                 width: W + panelWidth,
                 height: H,
@@ -143,59 +115,75 @@ app.post("/upload", async (req, res) => {
             .jpeg({ quality: 92 })
             .toBuffer();
 
-        // -----------------------------
-        // CLOUDINARY UPLOAD stream
-        const uploadStream = cloudinary.uploader.upload_stream(
-            { folder: "TW-eQSL" },
+        // ----------- Upload Cloudinary -------------------
+        cloudinary.uploader.upload_stream(
+            { folder: "TW-eQSL", tags: [TAG] },
             (err, result) => {
                 if (err) return res.json({ success: false, error: err.message });
 
-                const entry = {
-                    id: Date.now(),
-                    indicatif: req.body.indicatif,
-                    url: result.secure_url,
-                    thumb: result.secure_url.replace("/upload/", "/upload/w_300/"),
-                    date: req.body.date
-                };
-
-                qslList.push(entry);
-
-                return res.json({ success: true, qsl: entry });
+                return res.json({
+                    success: true,
+                    qsl: {
+                        indicatif: req.body.indicatif,
+                        url: result.secure_url,
+                        thumb: result.secure_url.replace("/upload/", "/upload/w_400/"),
+                        date: req.body.date
+                    }
+                });
             }
-        );
+        ).end(finalBuffer);
 
-        uploadStream.end(final);
-
-    } catch (err) {
-        console.error("UPLOAD ERROR:", err);
-        res.json({ success: false, error: err.message });
+    } catch (e) {
+        console.error(e);
+        res.json({ success: false, error: e.message });
     }
 });
 
 // -----------------------------------------
-// GALLERY
-app.get("/qsl", (req, res) => {
-    res.json(qslList);
+// GET ALL QSL (cloud-only)
+// -----------------------------------------
+app.get("/qsl", async (req, res) => {
+    const list = await cloudinary.search
+        .expression(`tags=${TAG}`)
+        .sort_by("uploaded_at", "desc")
+        .max_results(100)
+        .execute();
+
+    const result = list.resources.map(r => ({
+        indicatif: r.filename,
+        url: r.secure_url,
+        thumb: r.secure_url.replace("/upload/", "/upload/w_400/")
+    }));
+
+    res.json(result);
 });
 
 // -----------------------------------------
-// DIRECT DOWNLOAD
+// DIRECT DOWNLOAD (no preview)
+// -----------------------------------------
 app.get("/download/:call", async (req, res) => {
     const call = req.params.call.toUpperCase();
-    const list = qslList.filter(q => q.indicatif.toUpperCase() === call);
 
-    res.json(list);
+    const search = await cloudinary.search
+        .expression(`tags=${TAG} AND filename:${call}`)
+        .max_results(50)
+        .execute();
+
+    if (!search.resources.length)
+        return res.json([]);
+
+    const file = search.resources[0];
+
+    res.setHeader("Content-Disposition", `attachment; filename="${call}.jpg"`);
+    res.redirect(file.secure_url);
 });
 
 // -----------------------------------------
-// FRONTEND DEFAULT ROUTE
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
 // -----------------------------------------
-// SERVER
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () =>
-    console.log("TW-eQSL server running on port " + PORT)
+app.listen(process.env.PORT || 10000, () =>
+    console.log("TW-eQSL server running")
 );
