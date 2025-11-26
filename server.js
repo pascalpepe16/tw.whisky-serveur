@@ -2,6 +2,10 @@
 //  TW eQSL – Serveur Render Compatible
 // -----------------------------------------
 
+// -----------------------------------------
+//  TW eQSL – Serveur Render Compatible
+// -----------------------------------------
+
 import express from "express";
 import cors from "cors";
 import fileUpload from "express-fileupload";
@@ -10,6 +14,19 @@ import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import { fileURLToPath } from "url";
+
+// -----------------------------------------
+// PATHS + AUTO-CREATION data/qsl.json
+// -----------------------------------------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const DATA_DIR = path.join(__dirname, "data");
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
+const DATA_FILE = path.join(DATA_DIR, "qsl.json");
+if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]");
+
 
 const app = express();
 app.use(cors());
