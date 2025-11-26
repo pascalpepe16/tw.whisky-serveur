@@ -16,7 +16,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // -----------------------------------------
-// PATHS + AUTO-CREATION data/qsl.json
+// PATHS + AUTO CREATION data/qsl.json
 // -----------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +27,13 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 const DATA_FILE = path.join(DATA_DIR, "qsl.json");
 if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]");
 
+// Fonction utilitaire lecture/écriture
+function loadQSL() {
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+}
+function saveQSL(list) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
+}
 
 const app = express();
 app.use(cors());
@@ -38,8 +45,6 @@ app.use(fileUpload({
 }));
 
 // PATHS
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 app.use(express.static(path.join(__dirname, "public")));
 
