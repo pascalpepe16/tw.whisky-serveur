@@ -1,6 +1,6 @@
 // -----------------------------------------
 //  TW eQSL – Serveur Render Compatible
-//  Sharp + Cloudinary + Génération QSL
+//  Sharp + Cloudinary – Version ULTRA STABLE
 // -----------------------------------------
 
 import express from "express";
@@ -13,25 +13,17 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // -----------------------------------------
-// INIT EXPRESS
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(fileUpload({ useTempFiles: true, tempFileDir: "/tmp/" }));
 
-app.use(fileUpload({
-    useTempFiles: true,
-    tempFileDir: "/tmp/"
-}));
-
-// -----------------------------------------
-// PATHS
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Static folder
 app.use(express.static(path.join(__dirname, "public")));
 
-const TEMPLATE_PATH = path.join(__dirname, "template/eqsl_template.jpg");
+const TEMPLATE_PATH = path.join(__dirname, "template/blank.jpg");
 
 // -----------------------------------------
 // CLOUDINARY
@@ -42,30 +34,26 @@ cloudinary.config({
 });
 
 // -----------------------------------------
-// RAM QSL STORAGE
 let qslList = [];
 
 // -----------------------------------------
-// TEXT WRAPPING (notes)
-// -----------------------------------------
-function wrapText(text, max = 32) {
+function wrap(text, max = 32) {
     if (!text) return "";
-    const words = text.split(" ");
-    let lines = [];
+    let out = [];
     let line = "";
-    for (let w of words) {
+    text.split(" ").forEach(w => {
         if ((line + w).length > max) {
-            lines.push(line.trim());
+            out.push(line.trim());
             line = "";
         }
         line += w + " ";
-    }
-    if (line.trim() !== "") lines.push(line.trim());
-    return lines.join("\n");
+    });
+    if (line.trim() !== "") out.push(line.trim());
+    return out.join("\n");
 }
 
 // -----------------------------------------
-// GENERATE + UPLOAD QSL
+// UPLOAD + GENERATION
 // -----------------------------------------
 app.post("/upload", async (req, res) => {
     try {
@@ -77,46 +65,47 @@ app.post("/upload", async (req, res) => {
 
         const img = req.files.qsl;
 
-        // Template
-        let templatePath = TEMPLATE_PATH;
-        if (req.files?.template) templatePath = req.files.template.tempFilePath;
+        // -----------------------------------------
+        // FORCE HEIGHT = 900px
+        const TARGET_H = 900;
 
-        // LOAD USER IMAGE (max 1400x900)
-        const userSharp = sharp(img.tempFilePath).resize({
-            width: 1400,
-            height: 900,
-            fit: "inside"
+        const baseSharp = sharp(img.tempFilePath).resize({
+            height: TARGET_H,
+            fit: "contain",
+            background: { r: 255, g: 255, b: 255 }
         });
 
-        const meta = await userSharp.metadata();
+        const meta = await baseSharp.metadata();
         const W = meta.width;
-        const H = meta.height;
+        const H = meta.height; // ALWAYS = 900
 
-        // PANEL
-        const panelWidth = Math.round(W * 0.28);
+        // -----------------------------------------
+        // PANEL WIDTH = 30% of final
+        const panelWidth = Math.round(W * 0.33);
 
-        const noteText = wrapText(req.body.note || "", 32);
+        const noteTxt = wrap(req.body.note || "", 32);
 
-        // SVG TEXT PANEL
+        // SVG PANEL
         const svg = `
 <svg width="${panelWidth}" height="${H}">
-    <rect width="100%" height="100%" fill="white"/>
-    <text x="25" y="70" font-size="46" font-weight="700" fill="black">${req.body.indicatif}</text>
+  <rect width="100%" height="100%" fill="white"/>
+  <text x="25" y="70" font-size="46" font-weight="700" fill="black">${req.body.indicatif}</text>
 
-    <text x="25" y="140" font-size="28" fill="black">Date : ${req.body.date}</text>
-    <text x="25" y="180" font-size="28" fill="black">UTC : ${req.body.time}</text>
-    <text x="25" y="220" font-size="28" fill="black">Bande : ${req.body.band}</text>
-    <text x="25" y="260" font-size="28" fill="black">Mode : ${req.body.mode}</text>
-    <text x="25" y="300" font-size="28" fill="black">Report : ${req.body.report}</text>
+  <text x="25" y="140" font-size="28" fill="black">Date : ${req.body.date}</text>
+  <text x="25" y="180" font-size="28" fill="black">UTC : ${req.body.time}</text>
+  <text x="25" y="220" font-size="28" fill="black">Bande : ${req.body.band}</text>
+  <text x="25" y="260" font-size="28" fill="black">Mode : ${req.body.mode}</text>
+  <text x="25" y="300" font-size="28" fill="black">Report : ${req.body.report}</text>
 
-    <text x="25" y="380" font-size="24" fill="black">${noteText}</text>
+  <text x="25" y="380" font-size="26" fill="black">${noteTxt}</text>
 </svg>
 `;
 
         const svgBuffer = Buffer.from(svg);
-        const userBuffer = await userSharp.toBuffer();
+        const userBuffer = await baseSharp.toBuffer();
 
-        // FINAL IMAGE
+        // -----------------------------------------
+        // FINAL CANVAS = EXACT SAME HEIGHT
         const final = await sharp({
             create: {
                 width: W + panelWidth,
@@ -125,15 +114,16 @@ app.post("/upload", async (req, res) => {
                 background: "white"
             }
         })
-            .composite([
-                { input: userBuffer, top: 0, left: 0 },
-                { input: svgBuffer, top: 0, left: W }
-            ])
-            .jpeg({ quality: 90 })
-            .toBuffer();
+        .composite([
+            { input: userBuffer, top: 0, left: 0 },
+            { input: svgBuffer, top: 0, left: W }
+        ])
+        .jpeg({ quality: 92 })
+        .toBuffer();
 
-        // UPLOAD TO CLOUDINARY
-        const uploadStream = cloudinary.uploader.upload_stream(
+        // -----------------------------------------
+        // UPLOAD CLOUDINARY
+        const stream = cloudinary.uploader.upload_stream(
             { folder: "TW-eQSL" },
             (err, result) => {
                 if (err) return res.json({ success: false, error: err.message });
@@ -151,7 +141,7 @@ app.post("/upload", async (req, res) => {
             }
         );
 
-        uploadStream.end(final);
+        stream.end(final);
 
     } catch (err) {
         console.error("UPLOAD ERROR:", err);
@@ -160,27 +150,16 @@ app.post("/upload", async (req, res) => {
 });
 
 // -----------------------------------------
-// GALLERY
-app.get("/qsl", (req, res) => {
-    res.json(qslList);
-});
-
-// -----------------------------------------
-// DOWNLOAD BY CALLSIGN
-app.get("/download/:call", (req, res) => {
-    const call = req.params.call.toUpperCase();
-    res.json(qslList.filter(q => q.indicatif.toUpperCase() === call));
-});
-
-// -----------------------------------------
-// DEFAULT FRONT-END ROUTE
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "public/index.html"));
-});
-
-// -----------------------------------------
-// START SERVER
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () =>
-    console.log("TW-eQSL server running on port " + PORT)
+app.get("/qsl", (req, res) => res.json(qslList));
+app.get("/download/:call", (req, res) =>
+    res.json(qslList.filter(q => q.indicatif.toUpperCase() === req.params.call.toUpperCase()))
 );
+
+// -----------------------------------------
+app.get("*", (req, res) =>
+    res.sendFile(path.join(__dirname, "public/index.html"))
+);
+
+// -----------------------------------------
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log("TW-eQSL server running on port " + PORT));
