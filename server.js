@@ -1,5 +1,5 @@
 // -----------------------------------------
-//  TW eQSL – Serveur Render Compatible
+//  TW eQSL – Serveur Render Compatible (Version Fixée)
 // -----------------------------------------
 
 import express from "express";
@@ -12,7 +12,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // -----------------------------------------
-// PATHS + AUTO CREATION data/qsl.json
+// PATHS + DATA STORAGE
 // -----------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,18 +23,14 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 const DATA_FILE = path.join(DATA_DIR, "qsl.json");
 if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]");
 
-// Fonctions utilitaires
-function loadQSL() {
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-}
-function saveQSL(list) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
-}
+let qslList = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
 
-let qslList = loadQSL();
+function saveQSL() {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(qslList, null, 2));
+}
 
 // -----------------------------------------
-// INIT EXPRESS
+// EXPRESS INIT
 // -----------------------------------------
 const app = express();
 app.use(cors());
@@ -46,8 +42,6 @@ app.use(fileUpload({
 
 app.use(express.static(path.join(__dirname, "public")));
 
-const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
-
 // -----------------------------------------
 // CLOUDINARY
 // -----------------------------------------
@@ -58,7 +52,7 @@ cloudinary.config({
 });
 
 // -----------------------------------------
-// TEXT WRAP FUNCTION
+// TEXT WRAP
 // -----------------------------------------
 function wrapText(text, max = 32) {
     if (!text) return "";
@@ -75,30 +69,24 @@ function wrapText(text, max = 32) {
     }
 
     if (line.trim()) lines.push(line.trim());
-
     return lines.join("\n");
 }
 
 // -----------------------------------------
-// UPLOAD + GENERATION
+// UPLOAD / GENERATE QSL
 // -----------------------------------------
 app.post("/upload", async (req, res) => {
     try {
-        if (!req.files || !req.files.qsl)
+        if (!req.files?.qsl)
             return res.json({ success: false, error: "Aucune image QSL fournie" });
 
         const imgFile = req.files.qsl;
 
-        let templatePath = LOCAL_TEMPLATE;
-        if (req.files?.template)
-            templatePath = req.files.template.tempFilePath;
-
-        // Resize image user
+        // Resize image max 1400×900
         const baseImg = sharp(imgFile.tempFilePath).resize({
             width: 1400,
             height: 900,
-            fit: "inside",
-            withoutEnlargement: true
+            fit: "inside"
         });
 
         const meta = await baseImg.metadata();
@@ -106,31 +94,28 @@ app.post("/upload", async (req, res) => {
         const H = meta.height;
 
         const panelWidth = 350;
-
-        // NOTE WRAPPED
         const noteText = wrapText(req.body.note, 32);
 
-        // SVG PANEL
+        // PANEL SVG
         const svg = `
         <svg width="${panelWidth}" height="${H}">
             <rect width="100%" height="100%" fill="white"/>
-            <text x="20" y="60" font-size="42" font-weight="700" fill="black">${req.body.indicatif}</text>
 
-            <text x="20" y="120" font-size="28" fill="black">Date : ${req.body.date}</text>
-            <text x="20" y="160" font-size="28" fill="black">UTC  : ${req.body.time}</text>
-            <text x="20" y="200" font-size="28" fill="black">Bande : ${req.body.band}</text>
-            <text x="20" y="240" font-size="28" fill="black">Mode : ${req.body.mode}</text>
-            <text x="20" y="280" font-size="28" fill="black">Report : ${req.body.report}</text>
+            <text x="20" y="60" font-size="42" font-weight="700">${req.body.indicatif}</text>
 
-            <text x="20" y="340" font-size="24" fill="black">
-${noteText}
-            </text>
+            <text x="20" y="120" font-size="28">Date : ${req.body.date}</text>
+            <text x="20" y="160" font-size="28">UTC : ${req.body.time}</text>
+            <text x="20" y="200" font-size="28">Bande : ${req.body.band}</text>
+            <text x="20" y="240" font-size="28">Mode : ${req.body.mode}</text>
+            <text x="20" y="280" font-size="28">Report : ${req.body.report}</text>
+
+            <text x="20" y="340" font-size="24">${noteText}</text>
         </svg>`;
 
         const svgBuffer = Buffer.from(svg);
         const userBuffer = await baseImg.toBuffer();
 
-        // Final canvas
+        // FINAL CANVAS (never error)
         const final = await sharp({
             create: {
                 width: W + panelWidth,
@@ -150,7 +135,8 @@ ${noteText}
         const uploadStream = cloudinary.uploader.upload_stream(
             { folder: "TW-eQSL" },
             (err, result) => {
-                if (err) return res.json({ success: false, error: err.message });
+                if (err)
+                    return res.json({ success: false, error: err.message });
 
                 const entry = {
                     id: Date.now(),
@@ -162,9 +148,9 @@ ${noteText}
                 };
 
                 qslList.push(entry);
-                saveQSL(qslList);
+                saveQSL();
 
-                res.json({ success: true, qsl: entry });
+                return res.json({ success: true, qsl: entry });
             }
         );
 
@@ -179,36 +165,36 @@ ${noteText}
 // -----------------------------------------
 // GALLERY
 // -----------------------------------------
-app.get("/qsl", (req, res) => {
-    res.json(qslList);
-});
+app.get("/qsl", (req, res) => res.json(qslList));
 
 // -----------------------------------------
-// DOWNLOAD TRACKING + REDIRECT
+// DIRECT DOWNLOAD + COUNTER
 // -----------------------------------------
 app.get("/file/:id", (req, res) => {
     const qsl = qslList.find(q => q.id == req.params.id);
     if (!qsl) return res.status(404).send("Not found");
 
     qsl.downloads++;
-    saveQSL(qslList);
+    saveQSL();
 
     res.redirect(qsl.url);
 });
 
 // -----------------------------------------
-// SEARCH BY CALLSIGN
+// SEARCH BY CALL
 // -----------------------------------------
 app.get("/download/:call", (req, res) => {
     const call = req.params.call.toUpperCase();
     res.json(qslList.filter(q => q.indicatif.toUpperCase() === call));
 });
 
-// -----------------------------------------
+// FRONTEND
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
-// -----------------------------------------
+// RUN SERVER
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log("TW eQSL server running on port " + PORT));
+app.listen(PORT, () =>
+    console.log("TW eQSL server running on port " + PORT)
+);
