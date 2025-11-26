@@ -25,7 +25,7 @@ function verifyPassword() {
 }
 
 // -----------------------------
-// GALERIE CLOUDINARY
+// GALERIE
 // -----------------------------
 async function loadGallery() {
     const box = document.getElementById("galleryContent");
@@ -45,31 +45,21 @@ async function loadGallery() {
             const img = document.createElement("img");
             img.src = q.thumb;
             img.title = q.indicatif;
-            img.className = "galleryItem";
-
-            // Preview popup
-            img.onclick = () => {
-                const w = window.open("", "_blank");
-                w.document.write(`<img src="${q.url}" style="width:100%;">`);
-            };
-
             box.appendChild(img);
         });
-    }
-    catch (e) {
+    } catch {
         box.innerHTML = "Erreur de chargement.";
     }
 }
 
 // -----------------------------
-// UPLOAD + GENERATION
+// UPLOAD
 // -----------------------------
 document.getElementById("genForm").onsubmit = async (e) => {
     e.preventDefault();
 
     const formData = new FormData(e.target);
     const preview = document.getElementById("genPreview");
-
     preview.innerHTML = "Génération…";
 
     try {
@@ -85,17 +75,16 @@ document.getElementById("genForm").onsubmit = async (e) => {
             return;
         }
 
-        preview.innerHTML = `<img src="${data.qsl.url}" style="max-width:450px;">`;
-
+        preview.innerHTML = `<img src="${data.qsl.url}">`;
         loadGallery();
-    }
-    catch (err) {
+
+    } catch {
         preview.innerHTML = "Erreur réseau";
     }
 };
 
 // -----------------------------
-// DOWNLOAD WITH VISUALIZE + DIRECT FILE
+// DOWNLOAD
 // -----------------------------
 document.getElementById("btnSearch").onclick = async () => {
     const call = document.getElementById("dlCall").value.trim().toUpperCase();
@@ -118,42 +107,33 @@ document.getElementById("btnSearch").onclick = async () => {
 
         list.forEach(q => {
             const wrap = document.createElement("div");
-            wrap.className = "dlBox";
 
             const img = document.createElement("img");
             img.src = q.thumb;
-            img.className = "thumb";
-
-            // PREVIEW BUTTON
-            const btnView = document.createElement("button");
-            btnView.textContent = "Visualiser";
-            btnView.className = "primary";
-            btnView.onclick = () => {
-                const w = window.open("", "_blank");
-                w.document.write(`<img src="${q.url}" style="width:100%;">`);
-            };
-
-            // DOWNLOAD DIRECT BUTTON
-            const btnDl = document.createElement("button");
-            btnDl.textContent = "Télécharger";
-            btnDl.className = "primary";
-            btnDl.onclick = () => {
-                const a = document.createElement("a");
-                a.href = API_URL + "/file/" + q.id;   // direct server file
-                a.download = `${q.indicatif}_${q.date}.jpg`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            };
 
             wrap.appendChild(img);
-            wrap.appendChild(btnView);
-            wrap.appendChild(btnDl);
+
+            // VISUALISER
+            const viewBtn = document.createElement("button");
+            viewBtn.textContent = "Visualiser";
+            viewBtn.className = "primary";
+            viewBtn.onclick = () => window.open(q.url, "_blank");
+
+            // TÉLÉCHARGER (serveur → cloudinary)
+            const dlBtn = document.createElement("button");
+            dlBtn.textContent = "Télécharger";
+            dlBtn.className = "primary";
+            dlBtn.onclick = () => {
+                window.location = API_URL + "/file/" + q.id;
+            };
+
+            wrap.appendChild(viewBtn);
+            wrap.appendChild(dlBtn);
 
             box.appendChild(wrap);
         });
 
-    } catch (e) {
+    } catch {
         box.innerHTML = "Erreur réseau";
     }
 };
