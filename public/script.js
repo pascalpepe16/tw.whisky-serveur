@@ -84,7 +84,7 @@ document.getElementById("genForm").onsubmit = async (e) => {
 };
 
 // -----------------------------
-// DOWNLOAD
+// TÉLÉCHARGEMENT
 // -----------------------------
 document.getElementById("btnSearch").onclick = async () => {
     const call = document.getElementById("dlCall").value.trim().toUpperCase();
@@ -110,21 +110,20 @@ document.getElementById("btnSearch").onclick = async () => {
 
             const img = document.createElement("img");
             img.src = q.thumb;
-
             wrap.appendChild(img);
 
-            // VISUALISER
+            // 🔍 VISUALISER
             const viewBtn = document.createElement("button");
             viewBtn.textContent = "Visualiser";
             viewBtn.className = "primary";
             viewBtn.onclick = () => window.open(q.url, "_blank");
 
-            // TÉLÉCHARGER (serveur → cloudinary)
+            // ⬇️ TÉLÉCHARGER DIRECT
             const dlBtn = document.createElement("button");
             dlBtn.textContent = "Télécharger";
             dlBtn.className = "primary";
             dlBtn.onclick = () => {
-                window.location = API_URL + "/file/" + q.id;
+                window.location.href = API_URL + "/file/" + q.id;
             };
 
             wrap.appendChild(viewBtn);
