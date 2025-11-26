@@ -61,24 +61,65 @@ document.getElementById("genForm").onsubmit = async (e) => {
 };
 
 // search / download by indicatif (multiple)
+// -----------------------------
+// DOWNLOAD DIRECT + VISUALISER
+// -----------------------------
 document.getElementById("btnSearch").onclick = async () => {
-  const call = document.getElementById("dlCall").value.trim().toUpperCase();
-  const box = document.getElementById("dlPreview");
-  if (!call) return alert("Entrez un indicatif");
-  box.innerHTML = "Recherche…";
-  try {
-    const res = await fetch(API_URL + "/download/" + call);
-    const list = await res.json();
-    if (!list.length) { box.innerHTML = "Aucune QSL trouvée."; return; }
-    box.innerHTML = `<h3>${list.length} QSL trouvée(s) pour ${call}</h3>`;
-    list.forEach(q => {
-      const div = document.createElement("div");
-      div.className = "dl-item";
-      const img = document.createElement("img"); img.src = q.thumb; img.style.width = "220px";
-      const view = document.createElement("button"); view.textContent = "Visualiser"; view.onclick = () => window.open(q.url, "_blank");
-      const dl = document.createElement("button"); dl.textContent = "Télécharger"; dl.onclick = () => window.location.href = API_URL + "/direct-download/" + q.id;
-      div.appendChild(img); div.appendChild(view); div.appendChild(dl);
-      box.appendChild(div);
-    });
-  } catch (e) { box.innerHTML = "Erreur réseau"; console.error(e); }
+    const call = document.getElementById("dlCall").value.trim().toUpperCase();
+    const box = document.getElementById("dlPreview");
+
+    if (!call) return alert("Entrez un indicatif");
+
+    box.innerHTML = "Recherche…";
+
+    try {
+        const res = await fetch(API_URL + "/download/" + call);
+        const list = await res.json();
+
+        if (!list.length) {
+            box.innerHTML = "Aucune QSL trouvée.";
+            return;
+        }
+
+        box.innerHTML = "";
+
+        list.forEach(q => {
+            const wrap = document.createElement("div");
+
+            const img = document.createElement("img");
+            img.src = q.thumb;
+            wrap.appendChild(img);
+
+            // --- BOUTON VISUALISER ---
+            const viewBtn = document.createElement("button");
+            viewBtn.textContent = "Visualiser";
+            viewBtn.className = "primary";
+            viewBtn.onclick = () => window.open(q.url, "_blank");
+            wrap.appendChild(viewBtn);
+
+            // --- BOUTON TÉLÉCHARGER ---
+            const dlBtn = document.createElement("button");
+            dlBtn.textContent = "Télécharger";
+            dlBtn.className = "primary";
+
+            dlBtn.onclick = () => {
+                fetch(q.url)
+                    .then(r => r.blob())
+                    .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${q.indicatif}_${q.date}.jpg`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+            };
+
+            wrap.appendChild(dlBtn);
+            box.appendChild(wrap);
+        });
+
+    } catch (e) {
+        box.innerHTML = "Erreur réseau";
+    }
 };
