@@ -41,19 +41,22 @@ async function loadGallery() {
         }
 
         box.innerHTML = "";
+
         list.forEach(q => {
             const img = document.createElement("img");
             img.src = q.thumb;
-            img.title = q.indicatif;
+            img.title = q.indicatif + " - " + q.date;
+            img.className = "galleryThumb";
             box.appendChild(img);
         });
-    } catch {
+
+    } catch (err) {
         box.innerHTML = "Erreur de chargement.";
     }
 }
 
 // -----------------------------
-// UPLOAD
+// UPLOAD – Génération QSL
 // -----------------------------
 document.getElementById("genForm").onsubmit = async (e) => {
     e.preventDefault();
@@ -75,18 +78,20 @@ document.getElementById("genForm").onsubmit = async (e) => {
             return;
         }
 
-        preview.innerHTML = `<img src="${data.qsl.url}">`;
+        preview.innerHTML = `<img src="${data.qsl.url}" class="generatedQSL">`;
+
         loadGallery();
 
-    } catch {
+    } catch (err) {
         preview.innerHTML = "Erreur réseau";
     }
 };
 
 // -----------------------------
-// DOWNLOAD
+// DOWNLOAD – Recherche QSL
 // -----------------------------
 document.getElementById("btnSearch").onclick = async () => {
+
     const call = document.getElementById("dlCall").value.trim().toUpperCase();
     const box = document.getElementById("dlPreview");
 
@@ -99,7 +104,7 @@ document.getElementById("btnSearch").onclick = async () => {
         const list = await res.json();
 
         if (!list.length) {
-            box.innerHTML = "Aucune QSL trouvée.";
+            box.innerHTML = "Aucune QSL trouvée pour : " + call;
             return;
         }
 
@@ -107,26 +112,28 @@ document.getElementById("btnSearch").onclick = async () => {
 
         list.forEach(q => {
             const wrap = document.createElement("div");
+            wrap.className = "dlItem";
 
             const img = document.createElement("img");
             img.src = q.thumb;
+            img.className = "dlThumb";
+
             wrap.appendChild(img);
 
-            // VISUALISER
+            // ------- VISUALISER ---------
             const viewBtn = document.createElement("button");
             viewBtn.textContent = "Visualiser";
             viewBtn.className = "primary";
             viewBtn.onclick = () => window.open(q.url, "_blank");
 
-            // TÉLÉCHARGER DIRECT
+            // ------- TELECHARGER DIRECT --------
             const dlBtn = document.createElement("button");
             dlBtn.textContent = "Télécharger";
             dlBtn.className = "primary";
-
             dlBtn.onclick = () => {
                 const a = document.createElement("a");
                 a.href = API_URL + "/file/" + q.id;
-                a.download = `${q.indicatif}_${q.date}.jpg`;
+                a.download = q.indicatif + "_" + q.date + ".jpg";
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -138,7 +145,7 @@ document.getElementById("btnSearch").onclick = async () => {
             box.appendChild(wrap);
         });
 
-    } catch {
+    } catch (err) {
         box.innerHTML = "Erreur réseau";
     }
 };
