@@ -145,7 +145,7 @@ app.post("/upload", async (req, res) => {
                     url: result.secure_url,
                     thumb: result.secure_url.replace("/upload/", "/upload/w_300/"),
                     date: req.body.date,
-                    downloads: 0
+                   
                 };
 
                 qslList.push(entry);
