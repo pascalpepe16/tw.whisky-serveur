@@ -110,7 +110,7 @@ app.post("/upload", async (req, res) => {
             <text x="20" y="240" font-size="28">Mode : ${req.body.mode}</text>
             <text x="20" y="280" font-size="28">Report : ${req.body.report}</text>
 
-            <text x="20" y="340" font-size="24">${noteText}</text>
+            <text x="20" y="300" font-size="24">${noteText}</text>
         </svg>`;
 
         const svgBuffer = Buffer.from(svg);
