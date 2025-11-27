@@ -86,7 +86,6 @@ document.getElementById("genForm").onsubmit = async (e) => {
         preview.innerHTML = "Erreur réseau";
     }
 };
-
 // -----------------------------
 // DOWNLOAD DIRECT + VISUALISER
 // -----------------------------
@@ -114,6 +113,7 @@ document.getElementById("btnSearch").onclick = async () => {
 
             const img = document.createElement("img");
             img.src = q.thumb;
+
             wrap.appendChild(img);
 
             // --- BOUTON VISUALISER ---
@@ -123,22 +123,13 @@ document.getElementById("btnSearch").onclick = async () => {
             viewBtn.onclick = () => window.open(q.url, "_blank");
             wrap.appendChild(viewBtn);
 
-            // --- BOUTON TÉLÉCHARGER ---
+            // --- BOUTON TÉLÉCHARGER (100% FONCTIONNEL) ---
             const dlBtn = document.createElement("button");
             dlBtn.textContent = "Télécharger";
             dlBtn.className = "primary";
 
             dlBtn.onclick = () => {
-                fetch(q.url)
-                    .then(r => r.blob())
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${q.indicatif}_${q.date}.jpg`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    });
+                window.location.href = API_URL + "/file/" + q.id;
             };
 
             wrap.appendChild(dlBtn);
