@@ -127,17 +127,13 @@ document.getElementById("btnSearch").onclick = async () => {
             viewBtn.onclick = () => window.open(q.url, "_blank");
 
             // ------- TELECHARGER DIRECT --------
-             const dlBtn = document.createElement("button");
-            dlBtn.textContent = "Télécharger";
-            dlBtn.className = "primary";
-
-            dlBtn.onclick = () => {
-                const a = document.createElement("a");
-                a.href = API_URL + "/file/" + q.id;
-                a.download = `${q.indicatif}_${q.date}.jpg`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+             dlBtn.onclick = () => {
+    const a = document.createElement("a");
+    a.href = API_URL + "/file/" + q.id;
+    a.download = q.indicatif + "_" + q.date + ".jpg";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
             };
 
             wrap.appendChild(viewBtn);
