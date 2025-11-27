@@ -82,10 +82,11 @@ app.post("/upload", async (req, res) => {
         const imgFile = req.files.qsl;
 
         // Resize user image
-        const baseImg = sharp(imgFile.tempFilePath).resize({
+           const baseImg = sharp(imgFile.tempFilePath).resize({
             width: 1400,
             height: 900,
-            fit: "inside"
+            fit: "inside",
+            withoutEnlargement: true
         });
 
         const meta = await baseImg.metadata();
@@ -108,7 +109,7 @@ app.post("/upload", async (req, res) => {
             <text x="20" y="200" font-size="28">Bande : ${req.body.band}</text>
             <text x="20" y="240" font-size="28">Mode : ${req.body.mode}</text>
             <text x="20" y="280" font-size="28">Report : ${req.body.report}</text>
-            <text x="20" y="360" font-size="24">${noteText}</text>
+            <text x="20" y="340" font-size="24">${noteText}</text>
         </svg>`;
 
         const svgBuffer = Buffer.from(svg);
@@ -142,6 +143,7 @@ app.post("/upload", async (req, res) => {
                     url: result.secure_url,
                     thumb: result.secure_url.replace("/upload/", "/upload/w_300/"),
                     date: req.body.date
+                    dowloads: 0
                 };
 
                 qslList.push(entry);
