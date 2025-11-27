@@ -104,13 +104,13 @@ app.post("/upload", async (req, res) => {
 
             <text x="20" y="60" font-size="42" font-weight="700">${req.body.indicatif}</text>
 
-            <text x="20" y="120" font-size="28">Date : ${req.body.date}</text>
-            <text x="20" y="160" font-size="28">UTC : ${req.body.time}</text>
-            <text x="20" y="200" font-size="28">Bande : ${req.body.band}</text>
-            <text x="20" y="240" font-size="28">Mode : ${req.body.mode}</text>
-            <text x="20" y="280" font-size="28">Report : ${req.body.report}</text>
+            <text x="20" y="100" font-size="28">Date : ${req.body.date}</text>
+            <text x="20" y="140" font-size="28">UTC : ${req.body.time}</text>
+            <text x="20" y="180" font-size="28">Bande : ${req.body.band}</text>
+            <text x="20" y="200" font-size="28">Mode : ${req.body.mode}</text>
+            <text x="20" y="240" font-size="28">Report : ${req.body.report}</text>
 
-            <text x="20" y="300" font-size="24">${noteText}</text>
+            <text x="20" y="280" font-size="24">${noteText}</text>
         </svg>`;
 
         const svgBuffer = Buffer.from(svg);
