@@ -108,7 +108,7 @@ app.post("/upload", async (req, res) => {
             <text x="20" y="140" font-size="28">UTC : ${req.body.time}</text>
             <text x="20" y="180" font-size="28">Bande : ${req.body.band}</text>
             <text x="20" y="200" font-size="28">Mode : ${req.body.mode}</text>
-            <text x="20" y="240" font-size="28">Report : ${req.body.report}</text>
+            <text x="20" y="260" font-size="28">Report : ${req.body.report}</text>
 
             <text x="20" y="280" font-size="24">${noteText}</text>
         </svg>`;
