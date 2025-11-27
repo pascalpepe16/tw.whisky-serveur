@@ -122,7 +122,7 @@ app.post("/upload", async (req, res) => {
             <text x="20" y="240" font-size="28" fill="black">Mode : ${req.body.mode}</text>
             <text x="20" y="280" font-size="28" fill="black">Report : ${req.body.report}</text>
 
-            <text x="20" y="340" font-size="24" fill="black">
+            <text x="20" y="310" font-size="24" fill="black">
 ${noteText}
             </text>
         </svg>`;
