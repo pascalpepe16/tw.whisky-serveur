@@ -86,7 +86,8 @@ app.post("/upload", async (req, res) => {
         const baseImg = sharp(imgFile.tempFilePath).resize({
             width: 1400,
             height: 900,
-            fit: "inside"
+            fit: "inside",
+            withoutEnlargement: true
         });
 
         const meta = await baseImg.metadata();
