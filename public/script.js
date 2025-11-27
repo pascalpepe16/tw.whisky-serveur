@@ -88,10 +88,9 @@ document.getElementById("genForm").onsubmit = async (e) => {
 };
 
 // -----------------------------
-// DOWNLOAD – Recherche QSL
+// DOWNLOAD DIRECT + VISUALISER
 // -----------------------------
 document.getElementById("btnSearch").onclick = async () => {
-
     const call = document.getElementById("dlCall").value.trim().toUpperCase();
     const box = document.getElementById("dlPreview");
 
@@ -104,7 +103,7 @@ document.getElementById("btnSearch").onclick = async () => {
         const list = await res.json();
 
         if (!list.length) {
-            box.innerHTML = "Aucune QSL trouvée pour : " + call;
+            box.innerHTML = "Aucune QSL trouvée.";
             return;
         }
 
@@ -112,37 +111,42 @@ document.getElementById("btnSearch").onclick = async () => {
 
         list.forEach(q => {
             const wrap = document.createElement("div");
-            wrap.className = "dlItem";
 
             const img = document.createElement("img");
             img.src = q.thumb;
-            img.className = "dlThumb";
-
             wrap.appendChild(img);
 
-            // ------- VISUALISER ---------
+            // --- BOUTON VISUALISER ---
             const viewBtn = document.createElement("button");
             viewBtn.textContent = "Visualiser";
             viewBtn.className = "primary";
             viewBtn.onclick = () => window.open(q.url, "_blank");
+            wrap.appendChild(viewBtn);
 
-            // ------- TELECHARGER DIRECT --------
-             dlBtn.onclick = () => {
-    const a = document.createElement("a");
-    a.href = API_URL + "/file/" + q.id;
-    a.download = q.indicatif + "_" + q.date + ".jpg";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+            // --- BOUTON TÉLÉCHARGER ---
+            const dlBtn = document.createElement("button");
+            dlBtn.textContent = "Télécharger";
+            dlBtn.className = "primary";
+
+            dlBtn.onclick = () => {
+                fetch(q.url)
+                    .then(r => r.blob())
+                    .then(blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${q.indicatif}_${q.date}.jpg`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
             };
 
-            wrap.appendChild(viewBtn);
             wrap.appendChild(dlBtn);
-
             box.appendChild(wrap);
         });
 
-    } catch (err) {
+    } catch (e) {
         box.innerHTML = "Erreur réseau";
     }
 };
+
