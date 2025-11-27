@@ -11,9 +11,7 @@ import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// -----------------------------------------
 // PATHS + AUTO CREATION data/qsl.json
-// -----------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -21,12 +19,20 @@ const DATA_DIR = path.join(__dirname, "data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
 const DATA_FILE = path.join(DATA_DIR, "qsl.json");
-if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]");
 
-// Fonctions utilitaires
+// Fonction utilitaire : charge ou réinitialise en cas d’erreur JSON
 function loadQSL() {
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    try {
+        const raw = fs.readFileSync(DATA_FILE, "utf8");
+        if (!raw.trim()) return [];          // fichier vide
+        return JSON.parse(raw);
+    } catch (e) {
+        console.log("⚠️ qsl.json corrompu → réinitialisation...");
+        fs.writeFileSync(DATA_FILE, "[]");
+        return [];
+    }
 }
+
 function saveQSL(list) {
     fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
 }
