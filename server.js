@@ -1,6 +1,5 @@
-// -----------------------------------------
-//  TW eQSL – Serveur Render Compatible
-// -----------------------------------------
+// server.js — TW eQSL (corrigé)
+// Utilise variables d'environnement pour Cloudinary (recommandé)
 
 import express from "express";
 import cors from "cors";
@@ -11,210 +10,189 @@ import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// PATHS + AUTO CREATION data/qsl.json
+// PATHS + DATA
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.join(__dirname, "data");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const DATA_FILE = path.join(DATA_DIR, "qsl.json");
+// create file if missing
+if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]", "utf8");
 
-// Fonction utilitaire : charge ou réinitialise en cas d’erreur JSON
+// safe load
 function loadQSL() {
-    try {
-        const raw = fs.readFileSync(DATA_FILE, "utf8");
-        if (!raw.trim()) return [];          // fichier vide
-        return JSON.parse(raw);
-    } catch (e) {
-        console.log("⚠️ qsl.json corrompu → réinitialisation...");
-        fs.writeFileSync(DATA_FILE, "[]");
-        return [];
-    }
+  try {
+    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    if (!raw || !raw.trim()) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn("qsl.json missing or corrupt - resetting");
+    fs.writeFileSync(DATA_FILE, "[]", "utf8");
+    return [];
+  }
 }
-
-function saveQSL(list) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
-}
-
 let qslList = loadQSL();
 
-// -----------------------------------------
-// INIT EXPRESS
-// -----------------------------------------
+function saveQSL() {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(qslList, null, 2), "utf8");
+}
+
+// EXPRESS INIT
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(fileUpload({
-    useTempFiles: true,
-    tempFileDir: "/tmp/"
+  useTempFiles: true,
+  tempFileDir: "/tmp/"
 }));
-
 app.use(express.static(path.join(__dirname, "public")));
 
-const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
-
-// -----------------------------------------
-// CLOUDINARY
-// -----------------------------------------
+// CLOUDINARY (use env vars in production)
 cloudinary.config({
-    cloud_name: "dqpvrfjeu",
-    api_key: "825331418956744",
-    api_secret: "XJKCIOnfRfD8sFXYuDjNrB-1zpE"
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "dqpvrfjeu",
+  api_key: process.env.CLOUDINARY_API_KEY || "825331418956744",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "XJKCIOnfRfD8sFXYuDjNrB-1zpE"
 });
 
-// -----------------------------------------
-// TEXT WRAP FUNCTION
-// -----------------------------------------
-function wrapText(text, max = 32) {
-    if (!text) return "";
-    const words = text.trim().split(" ");
-    let lines = [];
-    let line = "";
-
-    for (let w of words) {
-        if ((line + w).length > max) {
-            lines.push(line.trim());
-            line = "";
-        }
-        line += w + " ";
+// helper: wrap text into lines
+function wrapText(text = "", max = 32) {
+  text = String(text || "");
+  const words = text.trim().split(/\s+/);
+  let lines = [], line = "";
+  for (const w of words) {
+    if ((line + " " + w).trim().length > max) {
+      lines.push(line.trim());
+      line = w;
+    } else {
+      line = (line + " " + w).trim();
     }
-
-    if (line.trim()) lines.push(line.trim());
-
-    return lines.join("\n");
+  }
+  if (line) lines.push(line.trim());
+  return lines.join("\n");
 }
 
-// -----------------------------------------
-// UPLOAD + GENERATION
-// -----------------------------------------
+// UPLOAD + GENERATE
 app.post("/upload", async (req, res) => {
-    try {
-        if (!req.files || !req.files.qsl)
-            return res.json({ success: false, error: "Aucune image QSL fournie" });
+  try {
+    if (!req.files?.qsl) return res.json({ success: false, error: "Aucune image QSL fournie" });
 
-        const imgFile = req.files.qsl;
+    // Read fields (indicatif, date, time, band, mode, report, note)
+    const indicatif = (req.body.indicatif || "").toUpperCase();
+    const date = req.body.date || "";
+    const time = req.body.time || "";
+    const band = req.body.band || "";
+    const mode = req.body.mode || "";
+    const report = req.body.report || "";
+    const note = req.body.note || "";
 
-        let templatePath = LOCAL_TEMPLATE;
-        if (req.files?.template)
-            templatePath = req.files.template.tempFilePath;
+    const imgFile = req.files.qsl;
 
-        // Resize image user
-        const baseImg = sharp(imgFile.tempFilePath).resize({
-            width: 1400,
-            height: 900,
-            fit: "inside",
-            withoutEnlargement: true
-        });
+    // Resize user image to fit inside 1400x900 without distortion
+    const baseImg = sharp(imgFile.tempFilePath).resize({
+      width: 1400,
+      height: 900,
+      fit: "inside",
+      withoutEnlargement: true
+    });
 
-        const meta = await baseImg.metadata();
-        const W = meta.width;
-        const H = meta.height;
+    const meta = await baseImg.metadata();
+    const W = meta.width;
+    const H = meta.height;
 
-        const panelWidth = 350;
+    const panelWidth = 350;
+    const noteWrapped = wrapText(note, 32);
 
-        // NOTE WRAPPED
-        const noteText = wrapText(req.body.note, 32);
+    // SVG panel to the right (height = H)
+    const svg = `
+      <svg width="${panelWidth}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="white"/>
+        <text x="20" y="60" font-size="42" font-weight="700" fill="black">${indicatif}</text>
+        <text x="20" y="120" font-size="28" fill="black">Date : ${date}</text>
+        <text x="20" y="160" font-size="28" fill="black">UTC  : ${time}</text>
+        <text x="20" y="200" font-size="28" fill="black">Bande : ${band}</text>
+        <text x="20" y="240" font-size="28" fill="black">Mode : ${mode}</text>
+        <text x="20" y="280" font-size="28" fill="black">Report: ${report}</text>
+        <text x="20" y="340" font-size="22" fill="black">${noteWrapped}</text>
+      </svg>
+    `;
 
-        // SVG PANEL
-        const svg = `
-        <svg width="${panelWidth}" height="${H}">
-            <rect width="100%" height="100%" fill="white"/>
-            <text x="20" y="60" font-size="42" font-weight="700" fill="black">${req.body.indicatif}</text>
+    const svgBuffer = Buffer.from(svg);
+    const userBuffer = await baseImg.toBuffer();
 
-            <text x="20" y="120" font-size="28" fill="black">Date : ${req.body.date}</text>
-            <text x="20" y="160" font-size="28" fill="black">UTC  : ${req.body.time}</text>
-            <text x="20" y="200" font-size="28" fill="black">Bande : ${req.body.band}</text>
-            <text x="20" y="240" font-size="28" fill="black">Mode : ${req.body.mode}</text>
-            <text x="20" y="280" font-size="28" fill="black">Report : ${req.body.report}</text>
+    // create final canvas (must be >= sizes)
+    const final = await sharp({
+      create: {
+        width: W + panelWidth,
+        height: H,
+        channels: 3,
+        background: "white"
+      }
+    })
+    .composite([
+      { input: userBuffer, left: 0, top: 0 },
+      { input: svgBuffer, left: W, top: 0 }
+    ])
+    .jpeg({ quality: 92 })
+    .toBuffer();
 
-            <text x="20" y="310" font-size="24" fill="black">
-${noteText}
-            </text>
-        </svg>`;
+    // upload to Cloudinary
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: "TW-eQSL" },
+      (err, result) => {
+        if (err) {
+          console.error("Cloudinary upload error:", err);
+          return res.json({ success: false, error: err.message || "Cloudinary error" });
+        }
 
-        const svgBuffer = Buffer.from(svg);
-        const userBuffer = await baseImg.toBuffer();
+        const entry = {
+          id: Date.now(),
+          indicatif,
+          url: result.secure_url,
+          thumb: result.secure_url.replace("/upload/", "/upload/w_300/"),
+          date,
+          downloads: 0
+        };
 
-        // Final canvas
-        const final = await sharp({
-            create: {
-                width: W + panelWidth,
-                height: H,
-                channels: 3,
-                background: "white"
-            }
-        })
-        .composite([
-            { input: userBuffer, left: 0, top: 0 },
-            { input: svgBuffer, left: W, top: 0 }
-        ])
-        .jpeg({ quality: 92 })
-        .toBuffer();
+        qslList.push(entry);
+        saveQSL();
 
-        // Upload to Cloudinary
-        const uploadStream = cloudinary.uploader.upload_stream(
-            { folder: "TW-eQSL" },
-            (err, result) => {
-                if (err) return res.json({ success: false, error: err.message });
+        return res.json({ success: true, qsl: entry });
+      }
+    );
 
-                const entry = {
-                    id: Date.now(),
-                    indicatif: req.body.indicatif,
-                    url: result.secure_url,
-                    thumb: result.secure_url.replace("/upload/", "/upload/w_300/"),
-                    date: req.body.date,
-                  
-                };
+    uploadStream.end(final);
 
-                qslList.push(entry);
-                saveQSL(qslList);
-
-                res.json({ success: true, qsl: entry });
-            }
-        );
-
-        uploadStream.end(final);
-
-    } catch (err) {
-        console.error("UPLOAD ERROR:", err);
-        res.json({ success: false, error: err.message });
-    }
+  } catch (err) {
+    console.error("UPLOAD ERROR:", err);
+    return res.json({ success: false, error: err.message || String(err) });
+  }
 });
 
-// -----------------------------------------
 // GALLERY
-// -----------------------------------------
-app.get("/qsl", (req, res) => {
-    res.json(qslList);
-});
+app.get("/qsl", (req, res) => res.json(qslList));
 
-// -----------------------------------------
-// DOWNLOAD TRACKING + REDIRECT
-// -----------------------------------------
+// DIRECT FILE (increments downloads, redirect to Cloudinary URL)
 app.get("/file/:id", (req, res) => {
-    const qsl = qslList.find(q => q.id == req.params.id);
-    if (!qsl) return res.status(404).send("Not found");
-
-    qsl.downloads++;
-    saveQSL(qslList);
-
-    res.redirect(qsl.url);
+  const qsl = qslList.find(x => String(x.id) === String(req.params.id));
+  if (!qsl) return res.status(404).send("Not found");
+  qsl.downloads = (qsl.downloads || 0) + 1;
+  saveQSL();
+  // redirect so browser downloads (depending on headers)
+  res.redirect(qsl.url);
 });
 
-// -----------------------------------------
 // SEARCH BY CALLSIGN
-// -----------------------------------------
 app.get("/download/:call", (req, res) => {
-    const call = req.params.call.toUpperCase();
-    res.json(qslList.filter(q => q.indicatif.toUpperCase() === call));
+  const call = (req.params.call || "").toUpperCase();
+  res.json(qslList.filter(x => (x.indicatif || "").toUpperCase() === call));
 });
 
-// -----------------------------------------
+// frontend
 app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "public/index.html"));
+  res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
-// -----------------------------------------
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log("TW eQSL server running on port " + PORT));
+app.listen(PORT, () => console.log("Server running on port", PORT));
