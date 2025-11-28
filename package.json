@@ -1,7 +1,7 @@
 {
   "name": "tw-eqsl-server",
   "version": "1.0.0",
-  "description": "TW eQSL generator with Sharp + Cloudinary + Render deployment",
+  "description": "TW eQSL generator",
   "main": "server.js",
   "type": "module",
   "scripts": {
