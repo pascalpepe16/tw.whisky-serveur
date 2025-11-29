@@ -1,7 +1,7 @@
 {
   "name": "tw-eqsl-server",
   "version": "1.0.0",
-  "description": "TW eQSL generator",
+  "description": "TW eQSL generator (Cloudinary persistence)",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -12,6 +12,7 @@
     "axios": "^1.6.8",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "express-fileupload": "^1.5.2",
     "sharp": "^0.33.3"
