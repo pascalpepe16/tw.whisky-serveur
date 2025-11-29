@@ -4,12 +4,10 @@
   "description": "TW eQSL generator with Sharp, Cloudinary and Render deployment",
   "type": "module",
   "main": "server.js",
-
   "scripts": {
     "start": "node server.js",
     "build": "npm install --force"
   },
-
   "dependencies": {
     "axios": "^1.6.8",
     "cloudinary": "^1.41.3",
@@ -18,8 +16,5 @@
     "express-fileupload": "^1.5.2",
     "sharp": "^0.33.3"
   },
-
-  "engines": {
-    "node": ">=18"
-  }
+  "engines": { "node": ">=18" }
 }
