@@ -87,7 +87,7 @@ document.getElementById("btnSearch").onclick = async () => {
   if (!call) return alert("Entrez un indicatif");
   box.innerHTML = "Recherche…";
   try {
-    const res = await fetch(API_URL + "/download/" + encodeURIComponent(call));
+    const res = await fetch(API_URL + "/download/" + call);
     const list = await res.json();
     if (!list || !list.length) { box.innerHTML = "Aucune QSL trouvée."; return; }
     box.innerHTML = "";
