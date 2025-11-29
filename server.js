@@ -186,30 +186,39 @@ app.post("/upload", async (req, res) => {
 });
 
 // -------------------- DOWNLOAD (force direct download)
+import axios from "axios"; // ajoute ça en haut
+
+// -----------------------------------------
+// DOWNLOAD: STREAMING DIRECT → NAVIGATEUR
+// -----------------------------------------
 app.get("/file/:public_id", async (req, res) => {
-  try {
-    const id = req.params.public_id;
-    const r = await cloudinary.api.resource(id);
-    const ctx = parseContext(r.context || {});
-    const updated = buildContextObj({
-      ...ctx,
-      downloads: (Number(ctx.downloads) || 0) + 1
-    });
+    try {
+        const pid = req.params.public_id;
 
-    await cloudinary.uploader.explicit(id, { type: "upload", context: updated });
+        const qsl = qslList.find(q => q.public_id === pid);
+        if (!qsl) return res.status(404).send("Not found");
 
-    const fileResp = await axios.get(r.secure_url, { responseType: "arraybuffer" });
+        // Compteur
+        qsl.downloads++;
+        saveQSL(qslList);
 
-    res.set({
-      "Content-Type": "image/jpeg",
-      "Content-Disposition": `attachment; filename="${ctx.indicatif || id}.jpg"`
-    });
+        // Télécharger l’image Cloudinary en binaire
+        const response = await axios.get(qsl.url, { responseType: "arraybuffer" });
 
-    res.send(Buffer.from(fileResp.data));
+        res.setHeader("Content-Type", "image/jpeg");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${qsl.indicatif}_${qsl.date}.jpg"`
+        );
 
-  } catch (err) {
-    console.error("DOWNLOAD ERROR", err);
-    res.status(500).send("Erreur téléchargement");
+        // Envoi direct du binaire
+        res.send(Buffer.from(response.data, "binary"));
+
+    } catch (err) {
+        console.error("DOWNLOAD ERROR:", err);
+        res.status(500).send("Download error");
+    }
+});
   }
 });
 
