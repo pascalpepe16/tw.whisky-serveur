@@ -13,85 +13,67 @@
   </header>
 
   <nav>
-    <button id="btnHome" onclick="showSection('home')">Accueil</button>
-    <button id="btnGallery" onclick="showPassword('gallery')">Galerie</button>
-    <button id="btnCreate" onclick="showPassword('create')">Créer / Ajouter</button>
-    <button id="btnDownload" onclick="showSection('download')">Télécharger</button>
+    <button onclick="showSection('home')">Accueil</button>
+    <button onclick="showPassword('gallery')">Galerie</button>
+    <button onclick="showPassword('create')">Créer / Ajouter</button>
+    <button onclick="showSection('download')">Télécharger</button>
   </nav>
 
-  <div id="passwordBox" class="box hidden" aria-hidden="true">
+  <div id="passwordBox" class="box hidden">
     <h3>Mot de passe</h3>
-    <input type="password" id="pwd" placeholder="Code administrateur" />
-    <div style="margin-top:10px">
-      <button onclick="verifyPassword()" class="primary">Valider</button>
-      <button onclick="cancelPassword()" class="secondary">Annuler</button>
-    </div>
+    <input type="password" id="pwd">
+    <button onclick="verifyPassword()">Valider</button>
   </div>
 
   <main>
     <section id="home" class="section visible">
       <h2>Bienvenue</h2>
-      <p>Portail eQSL TANGO WHISKY — Créez, partagez, téléchargez vos QSL.</p>
+      <p>Portail eQSL TANGO WHISKY — Téléchargez vos QSL.</p>
     </section>
 
     <section id="gallery" class="section hidden">
       <h2>Galerie des QSL</h2>
-      <div id="galleryContent" class="grid">Chargement…</div>
+      <div id="galleryContent">Chargement…</div>
     </section>
 
     <section id="create" class="section hidden">
       <h2>Créer / Générer une QSL</h2>
-
       <form id="genForm" enctype="multipart/form-data">
         <div class="row"><label>Indicatif :</label><input name="indicatif" required></div>
-
         <div class="row two">
           <div><label>Date :</label><input type="date" name="date"></div>
           <div><label>UTC :</label><input type="time" name="time"></div>
         </div>
-
         <div class="row two">
           <div><label>Bande :</label><input name="band"></div>
           <div><label>Mode :</label><input name="mode"></div>
         </div>
-
         <div class="row two">
           <div><label>Report :</label><input name="report"></div>
-          <div><label>Note (max 120) :</label><input name="note" maxlength="120"></div>
+          <div><label>Note :</label><input name="note"></div>
         </div>
-
         <div class="row">
           <label>Image QSL (obligatoire) :</label>
           <input type="file" name="qsl" accept="image/*" required>
         </div>
-
         <div class="row">
           <label>Template personnalisé (optionnel) :</label>
           <input type="file" name="template" accept="image/*">
         </div>
-
         <div class="row actions">
           <button type="submit" class="primary">Générer & Envoyer</button>
-          <button type="button" id="btnPreviewLocal" class="secondary">Prévisualiser local</button>
         </div>
       </form>
-
       <div id="genPreview" class="preview"></div>
     </section>
 
     <section id="download" class="section hidden">
       <h2>Télécharger votre QSL</h2>
-
-      <div class="row">
-        <input id="dlCall" placeholder="Entrez un indicatif (ex: F4ABC)">
-        <button id="btnSearch" class="primary">Rechercher</button>
-      </div>
-
-      <div id="dlPreview" class="grid"></div>
+      <input id="dlCall" placeholder="Votre indicatif">
+      <button id="btnSearch" class="primary">Rechercher</button>
+      <div id="dlPreview"></div>
     </section>
   </main>
-
-
 
   <script src="script.js"></script>
 </body>
