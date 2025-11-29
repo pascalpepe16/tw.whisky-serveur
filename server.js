@@ -7,23 +7,23 @@ import cors from "cors";
 import fileUpload from "express-fileupload";
 import sharp from "sharp";
 import fs from "fs";
+import axios from "axios";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import { fileURLToPath } from "url";
 
 // -----------------------------------------
-// PATH SETUP
+// PATHS
 // -----------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// data/ folder auto-create
+// Ensure data folder exists
 const DATA_DIR = path.join(__dirname, "data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
+// Ensure qsl.json exists & is valid
 const DATA_FILE = path.join(DATA_DIR, "qsl.json");
-
-// repair JSON file if empty or broken
 if (!fs.existsSync(DATA_FILE)) {
     fs.writeFileSync(DATA_FILE, "[]");
 } else {
@@ -34,7 +34,7 @@ if (!fs.existsSync(DATA_FILE)) {
     }
 }
 
-// Load & Save helpers
+// Read & write JSON helpers
 function loadQSL() {
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
 }
@@ -61,7 +61,7 @@ app.use(express.static(path.join(__dirname, "public")));
 const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
 
 // -----------------------------------------
-// CLOUDINARY CONFIG
+// CLOUDINARY
 // -----------------------------------------
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "dqpvrfjeu",
@@ -70,7 +70,7 @@ cloudinary.config({
 });
 
 // -----------------------------------------
-// TEXT WRAP
+// TEXT WRAPPER
 // -----------------------------------------
 function wrapText(text, max = 32) {
     if (!text) return "";
@@ -85,12 +85,13 @@ function wrapText(text, max = 32) {
         }
         line += w + " ";
     }
-    if (line.trim().length > 0) lines.push(line.trim());
+
+    if (line.trim()) lines.push(line.trim());
     return lines.join("\n");
 }
 
 // -----------------------------------------
-// UPLOAD + QSL GENERATION
+// UPLOAD + GENERATOR
 // -----------------------------------------
 app.post("/upload", async (req, res) => {
     try {
@@ -99,7 +100,7 @@ app.post("/upload", async (req, res) => {
 
         const imgFile = req.files.qsl;
 
-        // Resize image
+        // Resize image (max 1400×900)
         const baseImg = sharp(imgFile.tempFilePath).resize({
             width: 1400,
             height: 900,
@@ -110,21 +111,21 @@ app.post("/upload", async (req, res) => {
         const meta = await baseImg.metadata();
         const W = meta.width;
         const H = meta.height;
-
         const panelWidth = 350;
-        const noteText = wrapText(req.body.note, 32);
 
         const svg = `
-        <svg width="${panelWidth}" height="${H}">
-            <rect width="100%" height="100%" fill="white"/>
-            <text x="20" y="60" font-size="42" font-weight="700">${req.body.indicatif}</text>
-            <text x="20" y="120" font-size="28">Date : ${req.body.date}</text>
-            <text x="20" y="160" font-size="28">UTC  : ${req.body.time}</text>
-            <text x="20" y="200" font-size="28">Bande: ${req.body.band}</text>
-            <text x="20" y="240" font-size="28">Mode : ${req.body.mode}</text>
-            <text x="20" y="280" font-size="28">Report : ${req.body.report}</text>
-            <text x="20" y="340" font-size="24">${noteText}</text>
-        </svg>`;
+            <svg width="${panelWidth}" height="${H}">
+                <rect width="100%" height="100%" fill="white"/>
+                <text x="20" y="60" font-size="42" font-weight="700">${req.body.indicatif}</text>
+                <text x="20" y="120" font-size="28">Date : ${req.body.date}</text>
+                <text x="20" y="160" font-size="28">UTC  : ${req.body.time}</text>
+                <text x="20" y="200" font-size="28">Bande : ${req.body.band}</text>
+                <text x="20" y="240" font-size="28">Mode : ${req.body.mode}</text>
+                <text x="20" y="280" font-size="28">Report : ${req.body.report}</text>
+
+                <text x="20" y="340" font-size="24">${wrapText(req.body.note, 32)}</text>
+            </svg>
+        `;
 
         const svgBuffer = Buffer.from(svg);
         const userBuffer = await baseImg.toBuffer();
@@ -144,6 +145,7 @@ app.post("/upload", async (req, res) => {
         .jpeg({ quality: 92 })
         .toBuffer();
 
+        // Upload to Cloudinary
         const uploadStream = cloudinary.uploader.upload_stream(
             { folder: "TW-eQSL" },
             (err, result) => {
@@ -181,29 +183,40 @@ app.get("/qsl", (req, res) => {
 });
 
 // -----------------------------------------
-// DOWNLOAD: direct → browser
+// TRUE DOWNLOAD (no redirect, no corruption)
 // -----------------------------------------
 app.get("/file/:public_id", async (req, res) => {
     try {
         const pid = req.params.public_id;
-
         const qsl = qslList.find(q => q.public_id === pid);
+
         if (!qsl) return res.status(404).send("Not found");
 
+        // Track downloads
         qsl.downloads++;
         saveQSL(qslList);
 
-        res.setHeader("Content-Disposition", `attachment; filename="${qsl.indicatif}_${qsl.date}.jpg"`);
-        res.redirect(qsl.url);
+        // Fetch Cloudinary binary
+        const file = await axios.get(qsl.url, {
+            responseType: "arraybuffer"
+        });
+
+        res.setHeader("Content-Type", "image/jpeg");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${qsl.indicatif}_${qsl.date}.jpg"`
+        );
+
+        res.send(Buffer.from(file.data, "binary"));
 
     } catch (err) {
         console.error("DOWNLOAD ERROR:", err);
-        res.status(500).send("Download error");
+        res.status(500).send("Download failed");
     }
 });
 
 // -----------------------------------------
-// SEARCH BY INDICATIF
+// SEARCH BY CALLSIGN
 // -----------------------------------------
 app.get("/download/:call", (req, res) => {
     const call = req.params.call.toUpperCase();
