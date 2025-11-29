@@ -141,7 +141,7 @@ app.get("/file/:public_id", async (req, res) => {
     const qsl = qslList.find(q => q.public_id === pid);
     if (!qsl) return res.status(404).send("Not found");
 
-    qsl.downloads = (qsl.downloads || 0) + 1;
+    qsl.downloads = (qsl.downloads || 0) + 3;
     saveQSL(qslList);
 
     // fetch binary from Cloudinary then send as attachment (avoids redirect/corruption)
