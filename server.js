@@ -47,7 +47,7 @@ let qslList = loadQSL();
 // -----------------------------------------
 // INIT EXPRESS
 // -----------------------------------------
-const app = express();
+const app = express();https://github.com/pascalpepe16/tw.whisky-serveur/blob/main/server.js
 app.use(cors());
 app.use(express.json());
 
