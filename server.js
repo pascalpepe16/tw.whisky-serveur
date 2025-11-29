@@ -1,10 +1,10 @@
 // server.js — TW eQSL (Cloudinary persistence, no dotenv)
 
+import axios from "axios";
 import express from "express";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import sharp from "sharp";
-import axios from "axios";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -189,27 +189,30 @@ app.post("/upload", async (req, res) => {
 app.get("/file/:public_id", async (req, res) => {
   try {
     const id = req.params.public_id;
-    const r = await cloudinary.api.resource(id);
-    const ctx = parseContext(r.context || {});
-    const updated = buildContextObj({
-      ...ctx,
-      downloads: (Number(ctx.downloads) || 0) + 1
-    });
+  
 
-    await cloudinary.uploader.explicit(id, { type: "upload", context: updated });
+        const qsl = qslList.find(q => q.public_id === id);
+        if (!qsl) return res.status(404).send("Not found");
 
-    const fileResp = await axios.get(r.secure_url, { responseType: "arraybuffer" });
+        // Compteur
+        qsl.downloads++;
+        saveQSL(qslList);
 
-    res.set({
-      "Content-Type": "image/jpeg",
-      "Content-Disposition": `attachment; filename="${ctx.indicatif || id}.jpg"`
-    });
+        // Télécharger l’image Cloudinary en binaire
+        const response = await axios.get(qsl.url, { responseType: "arraybuffer" });
 
-    res.send(Buffer.from(fileResp.data));
+        res.setHeader("Content-Type", "image/jpeg");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${qsl.indicatif}_${qsl.date}.jpg"`
+        );
 
-  } catch (err) {
-    console.error("DOWNLOAD ERROR", err);
-    res.status(500).send("Erreur téléchargement");
+        // Envoi direct du binaire
+        res.send(Buffer.from(response.data, "binary"));
+
+    } catch (err) {
+        console.error("DOWNLOAD ERROR:", err);
+        res.status(500).send("Download error");
   }
 });
 
