@@ -1,6 +1,5 @@
 // -----------------------------------------
 //  TW eQSL – Serveur Render Compatible
-//  Version finale – Cloudinary only
 // -----------------------------------------
 
 import express from "express";
@@ -9,33 +8,21 @@ import fileUpload from "express-fileupload";
 import sharp from "sharp";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
+import axios from "axios";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// -----------------------------------------
 // PATH SETUP
-// -----------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// data/ auto create
 const DATA_DIR = path.join(__dirname, "data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
 const DATA_FILE = path.join(DATA_DIR, "qsl.json");
+if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]");
 
-// verify JSON file integrity
-if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, "[]");
-} else {
-    try {
-        JSON.parse(fs.readFileSync(DATA_FILE));
-    } catch (e) {
-        fs.writeFileSync(DATA_FILE, "[]");
-    }
-}
-
-// load/save helpers
+// Load/save helpers
 function loadQSL() {
     try { return JSON.parse(fs.readFileSync(DATA_FILE)); }
     catch { return []; }
@@ -46,9 +33,6 @@ function saveQSL(list) {
 
 let qslList = loadQSL();
 
-// -----------------------------------------
-// EXPRESS INIT
-// -----------------------------------------
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -60,20 +44,13 @@ app.use(fileUpload({
 
 app.use(express.static(path.join(__dirname, "public")));
 
-const LOCAL_TEMPLATE = path.join(__dirname, "template/eqsl_template.jpg");
-
-// -----------------------------------------
-// CLOUDINARY CONFIG
-// -----------------------------------------
 cloudinary.config({
     cloud_name: "dqpvrfjeu",
     api_key: "825331418956744",
     api_secret: "XJKCIOnfRfD8sFXYuDjNrB-1zpE"
 });
 
-// -----------------------------------------
-// TEXT WRAP
-// -----------------------------------------
+// --- TEXT WRAP FUNCTION ---
 function wrapText(text, max = 32) {
     if (!text) return "";
     const words = text.trim().split(/\s+/);
@@ -87,22 +64,21 @@ function wrapText(text, max = 32) {
         }
         line += w + " ";
     }
-    if (line.trim() !== "") lines.push(line.trim());
+    if (line.trim()) lines.push(line.trim());
     return lines.join("\n");
 }
 
 // -----------------------------------------
-// UPLOAD + QSL GENERATION
+// UPLOAD + GENERATE QSL
 // -----------------------------------------
 app.post("/upload", async (req, res) => {
     try {
         if (!req.files || !req.files.qsl)
             return res.json({ success: false, error: "Aucune image fournie" });
 
-        const imgFile = req.files.qsl;
+        const img = req.files.qsl;
 
-        // Resize image
-        const baseImg = sharp(imgFile.tempFilePath).resize({
+        const baseImg = sharp(img.tempFilePath).resize({
             width: 1400,
             height: 900,
             fit: "inside",
@@ -112,12 +88,9 @@ app.post("/upload", async (req, res) => {
         const meta = await baseImg.metadata();
         const W = meta.width;
         const H = meta.height;
-
         const panelWidth = 350;
-
         const noteText = wrapText(req.body.note, 32);
 
-        // SVG PANEL
         const svg = `
         <svg width="${panelWidth}" height="${H}">
             <rect width="100%" height="100%" fill="white"/>
@@ -133,8 +106,7 @@ app.post("/upload", async (req, res) => {
         const svgBuffer = Buffer.from(svg);
         const userBuffer = await baseImg.toBuffer();
 
-        // Final canvas
-        const final = await sharp({
+        const finalImg = await sharp({
             create: {
                 width: W + panelWidth,
                 height: H,
@@ -149,8 +121,7 @@ app.post("/upload", async (req, res) => {
             .jpeg({ quality: 92 })
             .toBuffer();
 
-        // Upload Cloudinary
-        const uploadStream = cloudinary.uploader.upload_stream(
+        cloudinary.uploader.upload_stream(
             { folder: "TW-eQSL" },
             (err, result) => {
                 if (err) return res.json({ success: false, error: err.message });
@@ -174,12 +145,10 @@ app.post("/upload", async (req, res) => {
 
                 res.json({ success: true, qsl: entry });
             }
-        );
-
-        uploadStream.end(final);
+        ).end(finalImg);
 
     } catch (err) {
-        console.error("UPLOAD ERROR:", err);
+        console.error("UPLOAD ERROR", err);
         res.json({ success: false, error: err.message });
     }
 });
@@ -192,24 +161,36 @@ app.get("/qsl", (req, res) => {
 });
 
 // -----------------------------------------
-// DOWNLOAD — direct to file
+// DOWNLOAD DIRECT (REAL FILE DOWNLOAD)
 // -----------------------------------------
 app.get("/file/:public_id", async (req, res) => {
     const pid = req.params.public_id;
 
     const qsl = qslList.find(q => q.public_id === pid);
-    if (!qsl) return res.status(404).send("Fichier introuvable");
+    if (!qsl) return res.status(404).send("Not found");
 
     qsl.downloads++;
     saveQSL(qslList);
 
-    // Force le téléchargement
-    res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${qsl.indicatif}_${qsl.date}.jpg"`
-    );
+    try {
+        const response = await axios({
+            url: qsl.url,
+            method: "GET",
+            responseType: "arraybuffer"
+        });
 
-    res.redirect(qsl.url);
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${qsl.indicatif}_${qsl.date}.jpg"`
+        );
+        res.setHeader("Content-Type", "image/jpeg");
+
+        res.send(response.data);
+
+    } catch (err) {
+        console.error("DOWNLOAD ERROR", err);
+        res.status(500).send("Erreur download");
+    }
 });
 
 // -----------------------------------------
@@ -217,19 +198,14 @@ app.get("/file/:public_id", async (req, res) => {
 // -----------------------------------------
 app.get("/download/:call", (req, res) => {
     const call = req.params.call.toUpperCase();
-    const results = qslList.filter(q => (q.indicatif || "").toUpperCase() === call);
-    res.json(results);
+    res.json(qslList.filter(q => q.indicatif.toUpperCase() === call));
 });
 
-// -----------------------------------------
-// FRONTEND
 // -----------------------------------------
 app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
-// -----------------------------------------
-// START SERVER
 // -----------------------------------------
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () =>
