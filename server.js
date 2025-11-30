@@ -111,22 +111,42 @@ app.post("/upload", async (req, res) => {
 // list
 app.get("/qsl", (req, res) => res.json(qslList));
 
-// download real file (streams from cloudinary URL to client as attachment)
+// -----------------------------------------
+// DOWNLOAD: force real JPG download
+// -----------------------------------------
 app.get("/file/:public_id", async (req, res) => {
   try {
     const pid = req.params.public_id;
-    const q = qslList.find(x => x.public_id === pid);
-    if (!q) return res.status(404).send("Not found");
-    q.downloads = (q.downloads || 0) + 1;
+
+    // Find QSL entry
+    const qsl = qslList.find(q => q.public_id === pid);
+    if (!qsl) return res.status(404).send("Not found");
+
+    // Count download
+    qsl.downloads++;
     saveQSL(qslList);
 
-    const response = await axios({ url: q.url, method: "GET", responseType: "arraybuffer" });
-    res.setHeader("Content-Disposition", `attachment; filename="${(q.indicatif||'qsl')}_${(q.date||'')}.jpg"`);
+    // Cloudinary direct raw URL
+    const fileUrl = qsl.url.replace("/upload/", "/upload/fl_attachment/");
+
+    // Download real image bytes
+    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+
+    // Force browser to download as JPEG
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${(qsl.indicatif || "QSL")}_${qsl.date || "export"}.jpg"`
+    );
     res.setHeader("Content-Type", "image/jpeg");
-    res.send(response.data);
+
+    // Send bytes
+    return res.send(Buffer.from(response.data));
+
   } catch (err) {
-    console.error("DOWNLOAD ERROR", err);
-    res.status(500).send("Erreur téléchargement");
+    console.error("DOWNLOAD ERROR:", err);
+    return res.status(500).send("Erreur lors du téléchargement");
+
+
   }
 });
 
