@@ -11,41 +11,55 @@ function showPassword(target) { sectionToOpen = target; document.getElementById(
 function verifyPassword() { if (document.getElementById("pwd").value === "123456") { document.getElementById("passwordBox").classList.add("hidden"); showSection(sectionToOpen); } else alert("Mot de passe incorrect !"); }
 
 async function loadGallery() {
-  const box = document.getElementById("galleryContent"); box.innerHTML = "Chargement…";
+  const box = document.getElementById("galleryContent");
+  box.innerHTML = "Chargement…";
   try {
-    const res = await fetch(API_URL + "/qsl"); const list = await res.json();
-    if (!list.length) { box.innerHTML = "Aucune QSL"; return; }
+    const res = await fetch(API_URL + "/qsl");
+    const list = await res.json();
+    if (!list.length) { box.innerHTML = "Aucune QSL pour l'instant"; return; }
     box.innerHTML = "";
     list.forEach(q => {
-      const img = document.createElement("img"); img.src = q.thumb; img.title = `${q.indicatif} ${q.date}`; img.className = "galleryThumb";
+      const img = document.createElement("img");
+      img.src = q.thumb;
+      img.className = "galleryThumb";
+      img.title = `${q.indicatif} ${q.date}`;
       box.appendChild(img);
     });
-  } catch { box.innerHTML = "Erreur de chargement."; }
+  } catch {
+    box.innerHTML = "Erreur de chargement.";
+  }
 }
 loadGallery();
 
 document.getElementById("genForm").onsubmit = async (e) => {
   e.preventDefault();
   const form = new FormData(e.target);
-  const preview = document.getElementById("genPreview"); preview.innerHTML = "Génération…";
+  const preview = document.getElementById("genPreview");
+  preview.innerHTML = "Génération…";
   try {
     const res = await fetch(API_URL + "/upload", { method: "POST", body: form });
     const data = await res.json();
     if (!data.success) { preview.innerHTML = "Erreur : " + data.error; return; }
-    preview.innerHTML = `<img src="${data.qsl.url}" class="generatedQSL">`; loadGallery(); e.target.reset();
-  } catch { preview.innerHTML = "Erreur réseau"; }
+    preview.innerHTML = `<img src="${data.qsl.url}" class="generatedQSL">`;
+    loadGallery(); e.target.reset();
+  } catch {
+    preview.innerHTML = "Erreur réseau";
+  }
 };
 
 document.getElementById("btnSearch").onclick = async () => {
-  const call = (document.getElementById("dlCall").value || "").trim().toUpperCase(); const box = document.getElementById("dlPreview");
+  const call = (document.getElementById("dlCall").value || "").trim().toUpperCase();
+  const box = document.getElementById("dlPreview");
   if (!call) return alert("Entrez un indicatif");
   box.innerHTML = "Recherche…";
   try {
-    const res = await fetch(API_URL + "/download/" + call); const list = await res.json();
+    const res = await fetch(API_URL + "/download/" + call);
+    const list = await res.json();
     if (!list.length) { box.innerHTML = "Aucune QSL trouvée."; return; }
     box.innerHTML = "";
     list.forEach(q => {
-      const wrap = document.createElement("div"); wrap.className = "dlItem";
+      const wrap = document.createElement("div");
+      wrap.className = "dlItem";
       const img = document.createElement("img"); img.src = q.thumb; img.className = "dlThumb";
       const viewBtn = document.createElement("button"); viewBtn.className = "primary"; viewBtn.textContent = "Visualiser"; viewBtn.onclick = () => window.open(q.url, "_blank");
       const dlBtn = document.createElement("button"); dlBtn.className = "primary"; dlBtn.textContent = "Télécharger"; dlBtn.onclick = () => {
@@ -53,5 +67,7 @@ document.getElementById("btnSearch").onclick = async () => {
       };
       wrap.appendChild(img); wrap.appendChild(viewBtn); wrap.appendChild(dlBtn); box.appendChild(wrap);
     });
-  } catch { box.innerHTML = "Erreur réseau"; }
+  } catch {
+    box.innerHTML = "Erreur réseau";
+  }
 };
