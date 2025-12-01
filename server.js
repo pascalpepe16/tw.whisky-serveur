@@ -1,4 +1,6 @@
-// server.js
+// server.js - TW eQSL (final, production-ready)
+// Requires env: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+
 import express from "express";
 import cors from "cors";
 import fileUpload from "express-fileupload";
@@ -17,52 +19,66 @@ app.use(express.json());
 app.use(fileUpload({ useTempFiles: true, tempFileDir: "/tmp/" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// Cloudinary must be set via environment variables on Render / host
+// Cloudinary config via env
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// helper to build context string
+// Helpers
 function buildContext(obj = {}) {
-  // ctx key=value|key=value...
   return Object.entries(obj)
     .map(([k, v]) => `${k}=${encodeURIComponent(v || "")}`)
     .join("|");
 }
 
-// parse context returned by cloudinary (resource.context)
 function parseContext(ctx) {
   if (!ctx || !ctx.custom || !ctx.custom.entry) return {};
-  const str = ctx.custom.entry;
-  return str.split("|").reduce((acc, p) => {
+  return ctx.custom.entry.split("|").reduce((acc, p) => {
     const [k, ...rest] = p.split("=");
     acc[k] = decodeURIComponent(rest.join("=") || "");
     return acc;
   }, {});
 }
 
-// Wrap text into lines (simple)
-function wrapText(text = "", maxChars = 32) {
-  const words = String(text || "").split(/\s+/);
-  let lines = [], line = "";
+function wrapText(text = "", max = 32) {
+  if (!text) return "";
+  const words = String(text).trim().split(/\s+/);
+  const lines = [];
+  let line = "";
   for (const w of words) {
-    if ((line + " " + w).trim().length > maxChars) {
+    if ((line + " " + w).trim().length > max) {
       if (line.trim()) lines.push(line.trim());
       line = w;
-    } else line = (line + " " + w).trim();
+    } else {
+      line = (line + " " + w).trim();
+    }
   }
   if (line.trim()) lines.push(line.trim());
   return lines.join("\n");
 }
 
-// =====================
-// GET /qsl  — list from Cloudinary folder
-// =====================
+// Health
+app.get("/health", (req, res) => res.json({ ok: true }));
+
+// Debug: quick list read from Cloudinary (not used by normal UI)
+app.get("/debug/qsl", async (req, res) => {
+  try {
+    const result = await cloudinary.search
+      .expression("folder:TW-eQSL")
+      .max_results(200)
+      .execute();
+    res.json(result.resources || []);
+  } catch (err) {
+    console.error("DEBUG ERROR", err?.message || err);
+    res.status(500).json({ error: "Cloudinary error" });
+  }
+});
+
+// GET /qsl - list QSL (pulls meta from Cloudinary)
 app.get("/qsl", async (req, res) => {
   try {
-    // search Cloudinary folder (max_results 500)
     const result = await cloudinary.search
       .expression("folder:TW-eQSL")
       .sort_by("created_at", "desc")
@@ -83,34 +99,39 @@ app.get("/qsl", async (req, res) => {
         report: ctx.report || "",
         note: ctx.note || "",
         downloads: Number(ctx.downloads || 0),
+        format: r.format || "jpg",
       };
     });
 
     res.json(list);
   } catch (err) {
-    console.error("GET /qsl ERROR", err);
-    res.status(500).json({ error: "Erreur Cloudinary" });
+    console.error("GET /qsl ERROR", err?.message || err);
+    res.status(500).json({ error: "Impossible de lister QSL (Cloudinary)" });
   }
 });
 
-// =====================
-// POST /upload — receives form: qsl (image), indicatif, date, time, band, mode, report, note (optional)
-// Generates final image (user image + white panel on right with text) and uploads to Cloudinary with context
-// =====================
+// POST /upload - generate composed QSL image and upload to Cloudinary
+// Expects form-data: qsl (file), indicatif, date, time, band, mode, report, note
 app.post("/upload", async (req, res) => {
   try {
-    if (!req.files || !req.files.qsl) return res.status(400).json({ success: false, error: "Aucune image fournie" });
+    if (!req.files || !req.files.qsl) {
+      return res.status(400).json({ success: false, error: "Aucune image reçue" });
+    }
+
+    // Early check cloudinary credentials
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return res.status(500).json({ success: false, error: "Cloudinary non configuré (variables d'environnement manquantes)" });
+    }
 
     const file = req.files.qsl;
-    // resize user image to fit max 1400x900 keeping aspect ratio
+
+    // Resize user image to max 1400x900 (keeping aspect ratio)
     const userSharp = sharp(file.tempFilePath).resize({ width: 1400, height: 900, fit: "inside", withoutEnlargement: true });
     const meta = await userSharp.metadata();
     const W = meta.width || 1400;
     const H = meta.height || 900;
-
     const panelWidth = 350;
 
-    // compose SVG text panel
     const indicatif = (req.body.indicatif || "").toUpperCase();
     const date = req.body.date || "";
     const time = req.body.time || "";
@@ -119,29 +140,24 @@ app.post("/upload", async (req, res) => {
     const report = req.body.report || "";
     const note = wrapText(req.body.note || "", 32);
 
-    // svg with tspan for multiline note
-    const noteTspans = note
-      .split("\n")
-      .map((ln, i) => `<tspan x="20" dy="${i === 0 ? 0 : 24}">${ln}</tspan>`)
-      .join("");
-
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${panelWidth}" height="${H}">
-        <rect width="100%" height="100%" fill="white" />
-        <text x="20" y="60" font-size="42" font-weight="700" fill="black">${indicatif}</text>
-        <text x="20" y="120" font-size="28" fill="black">Date : ${date}</text>
-        <text x="20" y="160" font-size="28" fill="black">UTC  : ${time}</text>
-        <text x="20" y="200" font-size="28" fill="black">Bande : ${band}</text>
-        <text x="20" y="240" font-size="28" fill="black">Mode : ${mode}</text>
-        <text x="20" y="280" font-size="28" fill="black">Report : ${report}</text>
-        <text x="20" y="340" font-size="22" fill="black">${noteTspans}</text>
-      </svg>
-    `;
+    // Build SVG panel (note uses tspans for multiline)
+    const noteTspans = note.split("\n").map((ln, i) => `<tspan x="20" dy="${i === 0 ? 0 : 22}">${ln}</tspan>`).join("");
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${panelWidth}" height="${H}">
+      <rect width="100%" height="100%" fill="white"/>
+      <text x="20" y="60" font-size="42" font-weight="700" fill="black">${indicatif}</text>
+      <text x="20" y="120" font-size="28" fill="black">Date : ${date}</text>
+      <text x="20" y="160" font-size="28" fill="black">UTC  : ${time}</text>
+      <text x="20" y="200" font-size="28" fill="black">Bande : ${band}</text>
+      <text x="20" y="240" font-size="28" fill="black">Mode : ${mode}</text>
+      <text x="20" y="280" font-size="28" fill="black">Report : ${report}</text>
+      <text x="20" y="340" font-size="22" fill="black">${noteTspans}</text>
+    </svg>`;
 
     const svgBuffer = Buffer.from(svg);
     const userBuffer = await userSharp.toBuffer();
 
-    // final image: width = W + panelWidth, height = H
+    // Compose final canvas: width = W + panelWidth, height = H
     const finalBuffer = await sharp({
       create: { width: W + panelWidth, height: H, channels: 3, background: "white" }
     })
@@ -152,7 +168,7 @@ app.post("/upload", async (req, res) => {
       .jpeg({ quality: 92 })
       .toBuffer();
 
-    // build context string
+    // Prepare context metadata for Cloudinary (so we can retrieve later)
     const ctxStr = buildContext({
       indicatif,
       date,
@@ -164,15 +180,15 @@ app.post("/upload", async (req, res) => {
       downloads: 0
     });
 
-    // upload buffer to Cloudinary (stream)
+    // Upload buffer to Cloudinary (upload_stream)
     cloudinary.uploader.upload_stream({ folder: "TW-eQSL", context: `entry=${ctxStr}` }, (err, result) => {
       if (err) {
         console.error("Cloudinary upload error:", err);
-        return res.status(500).json({ success: false, error: err.message || "Cloudinary error" });
+        return res.status(500).json({ success: false, error: err.message || "Upload Cloudinary failed" });
       }
 
-      // return entry to frontend
-      res.json({
+      // Return the newly created object
+      return res.json({
         success: true,
         qsl: {
           public_id: result.public_id,
@@ -191,72 +207,88 @@ app.post("/upload", async (req, res) => {
     }).end(finalBuffer);
 
   } catch (err) {
-    console.error("UPLOAD ERROR", err);
-    res.status(500).json({ success: false, error: err.message || "Erreur serveur" });
+    console.error("UPLOAD ERROR:", err?.message || err);
+    return res.status(500).json({ success: false, error: err?.message || "Erreur serveur lors de la génération" });
   }
 });
 
-// =====================
-// POST /increment-download/:public_id  — increment downloads in Cloudinary context (optional)
-// =====================
-app.post("/increment-download/:public_id", async (req, res) => {
+// GET /download/:call — search by callsign (reads Cloudinary)
+app.get("/download/:call", async (req, res) => {
   try {
-    const id = req.params.public_id;
-    // get resource
-    const resource = await cloudinary.api.resource(id, { colors: false });
-    const ctx = parseContext(resource.context);
-    const downloads = (Number(ctx.downloads) || 0) + 1;
+    const call = (req.params.call || "").toUpperCase();
+    if (!call) return res.json([]);
 
-    // update context
-    const newCtx = buildContext({ ...ctx, downloads });
-    await cloudinary.uploader.explicit(id, { type: "upload", context: `entry=${newCtx}` });
+    // Query Cloudinary and parse contexts
+    const result = await cloudinary.search
+      .expression("folder:TW-eQSL")
+      .sort_by("created_at", "desc")
+      .max_results(500)
+      .execute();
 
-    return res.json({ success: true, downloads });
+    const list = (result.resources || []).map(r => {
+      const ctx = parseContext(r.context);
+      return {
+        public_id: r.public_id,
+        url: r.secure_url,
+        thumb: r.secure_url.replace("/upload/", "/upload/w_300/"),
+        indicatif: ctx.indicatif || "",
+        date: ctx.date || "",
+        time: ctx.time || "",
+        band: ctx.band || "",
+        mode: ctx.mode || "",
+        report: ctx.report || "",
+        note: ctx.note || "",
+        downloads: Number(ctx.downloads || 0),
+        format: r.format || "jpg"
+      };
+    }).filter(x => (x.indicatif || "").toUpperCase() === call);
+
+    return res.json(list);
   } catch (err) {
-    console.error("INCREMENT ERROR", err);
-    return res.status(500).json({ success: false, error: err.message });
+    console.error("SEARCH ERROR", err?.message || err);
+    return res.status(500).json([]);
   }
 });
 
-// =====================
-// GET /file/:public_id  — stream bytes from Cloudinary and force download (attachment)
-// =====================
+// GET /file/:public_id — fetch bytes from Cloudinary and return as attachment (download)
 app.get("/file/:public_id", async (req, res) => {
   try {
-    const id = req.params.public_id;
+    const public_id = req.params.public_id;
 
-    // fetch resource info to get url and context
-    const r = await cloudinary.api.resource(id);
-    const ctx = parseContext(r.context);
+    // Get resource info (format + secure_url + context)
+    const info = await cloudinary.api.resource(public_id, { resource_type: "image" });
 
-    // increment downloads in context (best effort)
+    const ctx = parseContext(info.context);
+    // Increment downloads in context (best effort)
     try {
       const downloads = (Number(ctx.downloads) || 0) + 1;
-      const newCtx = buildContext({ ...ctx, downloads });
-      await cloudinary.uploader.explicit(id, { type: "upload", context: `entry=${newCtx}` });
+      const newCtxStr = buildContext({ ...ctx, downloads });
+      await cloudinary.uploader.explicit(public_id, { type: "upload", context: `entry=${newCtxStr}` });
     } catch (e) {
-      console.warn("Could not update downloads:", e.message);
+      console.warn("Could not update downloads count:", e?.message || e);
     }
 
-    // compute public URL (secure)
-    const url = r.secure_url;
+    // Determine filename and extension
+    const ext = info.format || "jpg";
+    const safeName = ((ctx.indicatif || public_id).replace(/\W+/g, "_")).slice(0, 140);
+    const filename = `${safeName}_${ctx.date || ""}.${ext}`;
 
-    // fetch bytes and stream to client with attachment
-    const resp = await axios.get(url, { responseType: "arraybuffer" });
-    res.setHeader("Content-Type", "image/jpeg");
-    res.setHeader("Content-Disposition", `attachment; filename="${(ctx.indicatif || id).replace(/\//g,'_')}_${ctx.date || ''}.jpg"`);
-    return res.send(Buffer.from(resp.data));
+    // Fetch bytes from Cloudinary secure url
+    const r = await axios.get(info.secure_url, { responseType: "arraybuffer" });
+    res.setHeader("Content-Type", `image/${ext}`);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(Buffer.from(r.data));
   } catch (err) {
-    console.error("FILE ERROR", err);
-    return res.status(500).send("Erreur téléchargement");
+    console.error("FILE ERROR:", err?.message || err);
+    return res.status(500).send("Impossible de télécharger la QSL");
   }
 });
 
-// fallback
+// SPA fallback
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
-// start
+// Start
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log("TW-eQSL server running on port", PORT));
+app.listen(PORT, () => console.log(`TW-eQSL server listening on ${PORT}`));
