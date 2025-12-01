@@ -38,24 +38,51 @@
 
     <section id="create" class="section hidden">
       <h2>Créer / Générer une QSL</h2>
-      <form id="genForm" enctype="multipart/form-data">
-        <div class="row"><label>Indicatif</label><input name="indicatif" required></div>
-        <div class="row two">
-          <div><label>Date</label><input name="date" type="date"></div>
-          <div><label>Heure (UTC)</label><input name="time" type="time"></div>
-        </div>
-        <div class="row two">
-          <div><label>Bande</label><input name="band"></div>
-          <div><label>Mode</label><input name="mode"></div>
-        </div>
-        <div class="row two">
-          <div><label>Report</label><input name="report"></div>
-          <div><label>Note (max 120)</label><input name="note" maxlength="200"></div>
-        </div>
-        <div class="row"><label>Image QSL (obligatoire)</label><input type="file" name="qsl" accept="image/*" required></div>
-        <div class="row"><button class="primary" type="submit">Générer & Envoyer</button></div>
-      </form>
-      <div id="genPreview" class="preview"></div>
+     <form id="genForm" enctype="multipart/form-data">
+
+    <div class="row">
+        <label>Indicatif :</label>
+        <input type="text" name="indicatif" required>
+    </div>
+
+    <div class="row">
+        <label>Date :</label>
+        <input type="text" name="date" placeholder="2025-01-01">
+    </div>
+
+    <div class="row">
+        <label>UTC :</label>
+        <input type="text" name="time" placeholder="12:00">
+    </div>
+
+    <div class="row">
+        <label>Bande :</label>
+        <input type="text" name="band" placeholder="11m">
+    </div>
+
+    <div class="row">
+        <label>Mode :</label>
+        <input type="text" name="mode" placeholder="USB">
+    </div>
+
+    <div class="row">
+        <label>Report :</label>
+        <input type="text" name="report" placeholder="59">
+    </div>
+
+    <div class="row">
+        <label>Note :</label>
+        <textarea name="note" maxlength="120"></textarea>
+    </div>
+
+    <div class="row">
+        <label>Image QSL :</label>
+        <input type="file" name="qsl" accept="image/*" required>
+    </div>
+
+    <button class="primary" type="submit">Générer QSL</button>
+</form>
+
     </section>
 
     <section id="download" class="section hidden">
