@@ -5,7 +5,7 @@ body {
   background: url("https://res.cloudinary.com/dqpvrfjeu/image/upload/v1763731491/r45ocw9z3wnvu1fcqnus.jpg") center/cover fixed no-repeat;
 }
 header { text-align:center; padding:20px; background:rgba(0,0,0,0.45); }
-.logo { width:140px; display:block; margin:auto 0 10px; }
+.logo {width: 140px; margin-bottom: 10px; }
 nav { text-align:center; padding:12px; background:rgba(0,0,0,0.6); }
 nav button { margin:5px; padding:8px 12px; cursor:pointer; }
 .section { display:none; padding:18px; max-width:980px; margin:20px auto; background:rgba(0,0,0,0.55); border-radius:8px; }
