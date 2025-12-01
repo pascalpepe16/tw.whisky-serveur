@@ -7,6 +7,13 @@ function showSection(id) {
 }
 
 let sectionToOpen = null;
+function openGallery() {
+  showPassword('gallery');
+}
+function openCreate() {
+  showPassword('create');
+}
+
 function showPassword(target) {
   sectionToOpen = target;
   document.getElementById("passwordBox").classList.remove("hidden");
