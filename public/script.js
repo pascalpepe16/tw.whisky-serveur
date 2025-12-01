@@ -1,5 +1,4 @@
-// public/script.js
-const API_URL = location.origin; // same host (Render serve frontend+api)
+const API_URL = location.origin;
 
 function showSection(id) {
   document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
@@ -8,8 +7,7 @@ function showSection(id) {
 }
 let sectionToOpen = null;
 function showPassword(target) { sectionToOpen = target; document.getElementById("passwordBox").classList.remove("hidden"); }
-function cancelPassword() { document.getElementById("passwordBox").classList.add("hidden"); sectionToOpen = null; }
-function verifyPassword() { if (document.getElementById("pwd").value === "123456") { document.getElementById("pwd").value = ""; document.getElementById("passwordBox").classList.add("hidden"); if (sectionToOpen) showSection(sectionToOpen); sectionToOpen = null; } else alert("Mot de passe incorrect !"); }
+function verifyPassword() { if (document.getElementById("pwd").value === "123456") { document.getElementById("passwordBox").classList.add("hidden"); showSection(sectionToOpen); } else alert("Mot de passe incorrect"); }
 
 async function loadGallery() {
   const box = document.getElementById("galleryContent");
@@ -17,68 +15,68 @@ async function loadGallery() {
   try {
     const res = await fetch(API_URL + "/qsl");
     const list = await res.json();
-    if (!list || !list.length) { box.innerHTML = "Aucune QSL pour l'instant"; return; }
+    if (!list.length) { box.innerHTML = "Aucune QSL"; return; }
     box.innerHTML = "";
     list.forEach(q => {
+      const div = document.createElement("div");
+      div.className = "thumbWrap";
       const img = document.createElement("img");
-      img.src = q.thumb || q.url;
-      img.title = `${q.indicatif} — ${q.date || ""}`;
-      img.className = "galleryThumb";
-      img.onclick = () => window.open(q.url, "_blank");
-      box.appendChild(img);
+      img.src = q.thumb;
+      img.title = `${q.indicatif} ${q.date}`;
+      div.appendChild(img);
+      box.appendChild(div);
     });
-  } catch (err) {
-    box.innerHTML = "Erreur de chargement.";
-    console.error("loadGallery", err);
+  } catch (e) {
+    box.innerHTML = "Erreur de chargement";
   }
 }
 loadGallery();
 
 document.getElementById("genForm").onsubmit = async (e) => {
   e.preventDefault();
-  const form = new FormData(e.target);
+  const fd = new FormData(e.target);
   const preview = document.getElementById("genPreview");
   preview.innerHTML = "Génération…";
   try {
-    const res = await fetch(API_URL + "/upload", { method: "POST", body: form });
+    const res = await fetch(API_URL + "/upload", { method: "POST", body: fd });
     const data = await res.json();
-    if (!data || !data.success) { preview.innerHTML = "Erreur : " + (data?.error||"Serveur"); return; }
-    preview.innerHTML = `<img src="${data.qsl.url}" class="generatedQSL" alt="QSL générée">`;
+    if (!data.success) { preview.innerHTML = "Erreur: " + data.error; return; }
+    preview.innerHTML = `<img src="${data.qsl.url}" style="max-width:100%">`;
+    e.target.reset();
     loadGallery();
   } catch (err) {
     preview.innerHTML = "Erreur réseau";
-    console.error("upload", err);
   }
 };
 
 document.getElementById("btnSearch").onclick = async () => {
-  const call = document.getElementById("dlCall").value.trim().toUpperCase();
-  const box = document.getElementById("dlPreview");
+  const call = (document.getElementById("dlCall").value || "").trim().toUpperCase();
   if (!call) return alert("Entrez un indicatif");
+  const box = document.getElementById("dlPreview");
   box.innerHTML = "Recherche…";
   try {
-    const res = await fetch(API_URL + "/download/" + encodeURIComponent(call));
+    const res = await fetch(API_URL + "/download/" + call);
     const list = await res.json();
-    if (!list || !list.length) { box.innerHTML = "Aucune QSL trouvée."; return; }
+    if (!list.length) { box.innerHTML = "Aucune QSL trouvée"; return; }
     box.innerHTML = "";
     list.forEach(q => {
       const wrap = document.createElement("div");
-      wrap.className = "dlItem";
-      const img = document.createElement("img"); img.src = q.thumb || q.url; img.className = "dlThumb";
-      const txt = document.createElement("div"); txt.style.flex = "1"; txt.innerHTML = `<strong>${q.indicatif}</strong><br><small>${q.date||""}</small>`;
-      const viewBtn = document.createElement("button"); viewBtn.textContent = "Visualiser"; viewBtn.className = "primary"; viewBtn.onclick = () => window.open(q.url, "_blank");
-      const dlBtn = document.createElement("button"); dlBtn.textContent = "Télécharger"; dlBtn.className = "primary"; dlBtn.onclick = () => {
-        // direct download through server endpoint that streams attachment
+      wrap.className = "dlWrap";
+      const img = document.createElement("img"); img.src = q.thumb; img.className = "dlThumb";
+      wrap.appendChild(img);
+      const view = document.createElement("button"); view.textContent = "Visualiser"; view.onclick = () => window.open(q.url, "_blank");
+      const dl = document.createElement("button"); dl.textContent = "Télécharger"; dl.onclick = () => {
         const a = document.createElement("a");
         a.href = API_URL + "/file/" + encodeURIComponent(q.public_id);
-        a.download = `${q.indicatif || "qsl"}_${q.date || ""}.jpg`;
-        document.body.appendChild(a); a.click(); a.remove();
+        a.download = `${q.indicatif}_${q.date}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
       };
-      wrap.appendChild(img); wrap.appendChild(txt); wrap.appendChild(viewBtn); wrap.appendChild(dlBtn);
+      wrap.appendChild(view); wrap.appendChild(dl);
       box.appendChild(wrap);
     });
-  } catch (err) {
+  } catch (e) {
     box.innerHTML = "Erreur réseau";
-    console.error("download", err);
   }
 };
