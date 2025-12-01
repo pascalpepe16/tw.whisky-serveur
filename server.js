@@ -117,7 +117,7 @@ app.post("/upload", async (req, res) => {
     if (!req.files || !req.files.qsl) {
       return res.status(400).json({ success: false, error: "Aucune image reçue" });
     }
-
+});
     // Early check cloudinary credentials
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
       return res.status(500).json({ success: false, error: "Cloudinary non configuré (variables d'environnement manquantes)" });
