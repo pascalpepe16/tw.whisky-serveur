@@ -4,14 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TANGO WHISKY eQSL</title>
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- HEADER -->
   <header>
     <img src="https://res.cloudinary.com/dqpvrfjeu/image/upload/v1763588704/akyt1anm1inwmygj3vfz.png" class="logo" alt="TW">
     <h1>TANGO WHISKY eQSL</h1>
   </header>
 
+  <!-- NAVIGATION -->
   <nav>
     <button onclick="showSection('home')">Accueil</button>
     <button onclick="showPassword('gallery')">Galerie</button>
@@ -19,6 +23,7 @@
     <button onclick="showSection('download')">Télécharger</button>
   </nav>
 
+  <!-- PASSWORD PROTECT -->
   <div id="passwordBox" class="box hidden">
     <h3>Mot de passe</h3>
     <input type="password" id="pwd">
@@ -26,75 +31,90 @@
   </div>
 
   <main>
+
+    <!-- HOME -->
     <section id="home" class="section visible">
       <h2>Bienvenue</h2>
       <p>Portail eQSL TANGO WHISKY</p>
     </section>
 
+    <!-- GALLERY -->
     <section id="gallery" class="section hidden">
       <h2>Galerie</h2>
       <div id="galleryContent">Chargement…</div>
     </section>
 
+    <!-- CREATE / GENERATE -->
     <section id="create" class="section hidden">
       <h2>Créer / Générer une QSL</h2>
-     <form id="genForm" enctype="multipart/form-data">
 
-    <div class="row">
-        <label>Indicatif :</label>
-        <input type="text" name="indicatif" required>
-    </div>
+      <form id="genForm" enctype="multipart/form-data">
 
-    <div class="row">
-        <label>Date :</label>
-        <input type="text" name="date" placeholder="2025-01-01">
-    </div>
+        <div class="row">
+          <label>Indicatif :</label>
+          <input type="text" name="indicatif" required>
+        </div>
 
-    <div class="row">
-        <label>UTC :</label>
-        <input type="text" name="time" placeholder="12:00">
-    </div>
+        <div class="row">
+          <label>Date :</label>
+          <input type="text" name="date" placeholder="2025-01-01">
+        </div>
 
-    <div class="row">
-        <label>Bande :</label>
-        <input type="text" name="band" placeholder="11m">
-    </div>
+        <div class="row">
+          <label>UTC :</label>
+          <input type="text" name="time" placeholder="12:00">
+        </div>
 
-    <div class="row">
-        <label>Mode :</label>
-        <input type="text" name="mode" placeholder="USB">
-    </div>
+        <div class="row">
+          <label>Bande :</label>
+          <input type="text" name="band" placeholder="11m">
+        </div>
 
-    <div class="row">
-        <label>Report :</label>
-        <input type="text" name="report" placeholder="59">
-    </div>
+        <div class="row">
+          <label>Mode :</label>
+          <input type="text" name="mode" placeholder="USB">
+        </div>
 
-    <div class="row">
-        <label>Note :</label>
-        <textarea name="note" maxlength="120"></textarea>
-    </div>
+        <div class="row">
+          <label>Report :</label>
+          <input type="text" name="report" placeholder="59">
+        </div>
 
-    <div class="row">
-        <label>Image QSL :</label>
-        <input type="file" name="qsl" accept="image/*" required>
-    </div>
+        <div class="row">
+          <label>Note :</label>
+          <textarea name="note" maxlength="120"></textarea>
+        </div>
 
-    <button class="primary" type="submit">Générer QSL</button>
-</form>
+        <div class="row">
+          <label>Image QSL :</label>
+          <input type="file" name="qsl" accept="image/*" required>
+        </div>
+
+        <button class="primary" type="submit">Générer QSL</button>
+      </form>
+
+      <!-- PREVIEW (MANQUAIT AVANT → obligatoire !) -->
+      <div id="genPreview" class="previewBox"></div>
 
     </section>
 
+    <!-- DOWNLOAD -->
     <section id="download" class="section hidden">
       <h2>Télécharger</h2>
+
       <input id="dlCall" placeholder="Votre indicatif">
       <button id="btnSearch" class="primary">Rechercher</button>
+
       <div id="dlPreview"></div>
     </section>
+
   </main>
 
-  <footer>TANGO WHISKY © 2025</footer>
+  <footer>
+    TANGO WHISKY © 2025
+  </footer>
 
   <script src="script.js"></script>
+
 </body>
 </html>
