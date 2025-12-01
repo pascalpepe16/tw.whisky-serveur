@@ -46,58 +46,44 @@
     </section>
 
     <!-- CREATE / GENERATE -->
-    <section id="create" class="section hidden">
-      <h2>Créer / Générer une QSL</h2>
+   <section id="create" class="section hidden">
+  <h2>Créer / Générer une QSL</h2>
 
-      <form id="genForm" enctype="multipart/form-data">
+  <form id="genForm" enctype="multipart/form-data" class="wideForm">
 
-        <div class="row">
-          <label>Indicatif :</label>
-          <input type="text" name="indicatif" required>
-        </div>
+    <div class="twoColumns">
+      <div>
+        <label>Indicatif :</label>
+        <input type="text" name="indicatif" required>
 
-        <div class="row">
-          <label>Date :</label>
-          <input type="text" name="date" placeholder="2025-01-01">
-        </div>
+        <label>Date :</label>
+        <input type="text" name="date" placeholder="2025-01-01">
 
-        <div class="row">
-          <label>UTC :</label>
-          <input type="text" name="time" placeholder="12:00">
-        </div>
+        <label>UTC :</label>
+        <input type="text" name="time" placeholder="12:00">
 
-        <div class="row">
-          <label>Bande :</label>
-          <input type="text" name="band" placeholder="11m">
-        </div>
+        <label>Bande :</label>
+        <input type="text" name="band" placeholder="11m">
 
-        <div class="row">
-          <label>Mode :</label>
-          <input type="text" name="mode" placeholder="USB">
-        </div>
+        <label>Mode :</label>
+        <input type="text" name="mode" placeholder="USB">
 
-        <div class="row">
-          <label>Report :</label>
-          <input type="text" name="report" placeholder="59">
-        </div>
+        <label>Report :</label>
+        <input type="text" name="report" placeholder="59">
+      </div>
 
-        <div class="row">
-          <label>Note :</label>
-          <textarea name="note" maxlength="120"></textarea>
-        </div>
+      <div>
+        <label>Note :</label>
+        <textarea name="note" maxlength="200" style="height:140px"></textarea>
 
-        <div class="row">
-          <label>Image QSL :</label>
-          <input type="file" name="qsl" accept="image/*" required>
-        </div>
+        <label>Image QSL :</label>
+        <input type="file" name="qsl" accept="image/*" required>
+      </div>
+    </div>
 
-        <button class="primary" type="submit">Générer QSL</button>
-      </form>
-
-      <!-- PREVIEW (MANQUAIT AVANT → obligatoire !) -->
-      <div id="genPreview" class="previewBox"></div>
-
-    </section>
+    <button class="primary" type="submit">Générer QSL</button>
+  </form>
+</section>
 
     <!-- DOWNLOAD -->
     <section id="download" class="section hidden">
