@@ -131,7 +131,8 @@ document.getElementById("btnSearch").onclick = async () => {
         const a = document.createElement("a");
 
         // PUBLIC_ID SAFE POUR LE SERVEUR
-        a.href = API_URL + "/file/" + encodeURIComponent(q.public_id);
+       a.href = API_URL + "/file?pid=" + encodeURIComponent(q.public_id);
+
 
         a.download = `${q.indicatif}_${q.date}.jpg`;
         document.body.appendChild(a);
