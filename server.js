@@ -251,9 +251,9 @@ app.get("/download/:call", async (req, res) => {
 });
 
 // GET /file/:public_id — fetch bytes from Cloudinary and return as attachment (download)
-app.get("/file/:public_id", async (req, res) => {
-  try {
-    const public_id = req.params.public_id;
+app.get("/file", async (req, res) => {
+  const public_id = req.query.pid;
+
 
     // Get resource info (format + secure_url + context)
     const info = await cloudinary.api.resource(public_id, { resource_type: "image" });
