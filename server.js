@@ -39,10 +39,8 @@ function buildContext(obj = {}) {
 }
 
 function parseContext(ctx) {
-  // ctx may come as { custom: { entry: "k=v|k2=v2" } } from Cloudinary
   if (!ctx) return {};
   if (typeof ctx === "string") {
-    // sometimes context can be a raw string (unlikely) - attempt parse
     return ctx.split("|").reduce((acc, p) => {
       const [k, ...rest] = p.split("=");
       acc[k] = decodeURIComponent(rest.join("=") || "");
@@ -56,7 +54,6 @@ function parseContext(ctx) {
       return acc;
     }, {});
   }
-  // older SDKs may provide ctx as object of key->value directly
   if (typeof ctx === "object") {
     const simple = {};
     for (const k of Object.keys(ctx)) {
@@ -82,6 +79,15 @@ function wrapText(text = "", max = 32) {
   }
   if (line.trim()) lines.push(line.trim());
   return lines.join("\n");
+}
+
+function escapeXml(str = "") {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 // Health
@@ -128,9 +134,8 @@ app.post("/upload", async (req, res) => {
       return res.status(400).json({ success: false, error: "Aucune image reçue" });
     }
 
-    // Check Cloudinary env
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      return res.status(500).json({ success: false, error: "Cloudinary non configuré (variables d'environnement manquantes)" });
+      return res.status(500).json({ success: false, error: "Cloudinary non configuré" });
     }
 
     const file = req.files.qsl;
@@ -156,11 +161,8 @@ app.post("/upload", async (req, res) => {
     const report = req.body.report || "";
     const note = wrapText(req.body.note || "", 32);
 
-    // Build SVG panel (multiline note via tspans)
-    const noteTspans = note
-      .split("\n")
-      .map((ln, i) => `<tspan x="20" dy="${i === 0 ? 0 : 22}">${escapeXml(ln)}</tspan>`)
-      .join("");
+    // Build SVG panel with safe text
+    const noteTspans = note.split("\n").map((ln, i) => `<tspan x="20" dy="${i === 0 ? 0 : 22}">${escapeXml(ln)}</tspan>`).join("");
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
     <svg xmlns="http://www.w3.org/2000/svg" width="${panelWidth}" height="${H}">
       <rect width="100%" height="100%" fill="white"/>
@@ -187,7 +189,7 @@ app.post("/upload", async (req, res) => {
       .jpeg({ quality: 92 })
       .toBuffer();
 
-    // Prepare context metadata for Cloudinary
+    // Context metadata for Cloudinary (so we can filter by indicatif later)
     const ctxStr = buildContext({
       indicatif,
       date,
@@ -199,7 +201,6 @@ app.post("/upload", async (req, res) => {
       downloads: 0,
     });
 
-    // Upload buffer to Cloudinary
     cloudinary.uploader.upload_stream({ folder: "TW-eQSL", context: `entry=${ctxStr}` }, (err, result) => {
       if (err) {
         console.error("Cloudinary upload error:", err);
@@ -229,7 +230,7 @@ app.post("/upload", async (req, res) => {
   }
 });
 
-// GET /download/:call — search by callsign (reads Cloudinary)
+// GET /download/:call — search by callsign
 app.get("/download/:call", async (req, res) => {
   try {
     const call = (req.params.call || "").toUpperCase();
@@ -274,11 +275,10 @@ app.get("/file", async (req, res) => {
     const public_id = req.query.pid;
     if (!public_id) return res.status(400).send("Missing pid");
 
-    // Get resource info
     const info = await cloudinary.api.resource(public_id, { resource_type: "image" });
     const ctx = parseContext(info.context || {});
 
-    // Try increment downloads count (best-effort)
+    // increment downloads (best effort)
     try {
       const downloads = (Number(ctx.downloads) || 0) + 1;
       const newCtxStr = buildContext({ ...ctx, downloads });
@@ -291,7 +291,6 @@ app.get("/file", async (req, res) => {
     const safeName = ((ctx.indicatif || public_id).replace(/\W+/g, "_")).slice(0, 140);
     const filename = `${safeName}_${ctx.date || ""}.${ext}`;
 
-    // Fetch actual bytes from Cloudinary secure_url
     const r = await axios.get(info.secure_url, { responseType: "arraybuffer" });
     res.setHeader("Content-Type", `image/${ext}`);
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -310,13 +309,3 @@ app.get("*", (req, res) => {
 // Start server
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`TW-eQSL server listening on ${PORT}`));
-
-// small utility to escape text inserted into SVG to avoid breaking XML
-function escapeXml(str = "") {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
