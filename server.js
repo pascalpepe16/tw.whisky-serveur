@@ -196,30 +196,38 @@ app.get("/download/:call", async (req,res)=>{
 });
 
 // GET /file?pid=PUBLIC_ID — fetch bytes + return as attachment
-app.get("/file", async (req,res)=>{
-  try{
+app.get("/file", async (req, res) => {
+  try {
     const public_id = req.query.pid;
-    if(!public_id) return res.status(400).send("Missing pid");
-    const info = await cloudinary.api.resource(public_id, { resource_type:"image" });
-    const ctx = parseContext(info.context||{});
-    // best-effort increment
+    if (!public_id) return res.status(400).send("Missing pid");
+
+    const info = await cloudinary.api.resource(public_id, { resource_type: "image" });
+    const ctx = parseContext(info.context || {});
+
+    // Increment download count (best effort)
     try {
-      const downloads = (Number(ctx.downloads)||0)+1;
-      const newCtxStr = buildContext({...ctx, downloads});
-      await cloudinary.uploader.explicit(public_id, { type:"upload", context: `entry=${newCtxStr}` });
-    } catch(e){
-      console.warn("Could not update downloads:", e.message||e);
+      const downloads = (Number(ctx.downloads) || 0) + 1;
+      const newCtx = buildContext({ ...ctx, downloads });
+      await cloudinary.uploader.explicit(public_id, {
+        type: "upload",
+        context: `entry=${newCtx}`,
+      });
+    } catch (e) {
+      console.warn("Download count update failed:", e.message);
     }
+
     const ext = info.format || "jpg";
-    const safeName = ((ctx.indicatif||public_id).replace(/\W+/g,"_")).slice(0,140);
-    const filename = `${safeName}_${ctx.date||""}.${ext}`;
-    const r = await axios.get(info.secure_url, { responseType:"arraybuffer" });
+    const filename = `${(ctx.indicatif || public_id).replace(/\W+/g, "_")}_${ctx.date || ""}.${ext}`;
+
+    const img = await axios.get(info.secure_url, { responseType: "arraybuffer" });
+
     res.setHeader("Content-Type", `image/${ext}`);
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    return res.send(Buffer.from(r.data));
-  }catch(err){
+    res.send(Buffer.from(img.data));
+
+  } catch (err) {
     console.error("FILE ERROR:", err);
-    return res.status(500).send("Impossible de télécharger la QSL");
+    res.status(500).send("Impossible de télécharger la QSL");
   }
 });
 
