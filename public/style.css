@@ -1,161 +1,22 @@
-/* ---------------------------------
-   GLOBAL
----------------------------------- */
 body {
   margin: 0;
   font-family: Arial, sans-serif;
   color: #fff;
-  background: url("https://res.cloudinary.com/dqpvrfjeu/image/upload/v1763731491/r45ocw9z3wnvu1fcqnus.jpg")
-    center/cover fixed no-repeat;
+  background: url("https://res.cloudinary.com/dqpvrfjeu/image/upload/v1763731491/r45ocw9z3wnvu1fcqnus.jpg") center/cover fixed no-repeat;
 }
-
-/* Cache les éléments qui doivent être masqués */
-.hidden {
-  display: none !important;
-}
-
-/* ---------------------------------
-   HEADER
----------------------------------- */
-header {
-  text-align: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.logo {
-  width: 140px;
-  margin-bottom: 10px;
-}
-
-/* ---------------------------------
-   NAVIGATION
----------------------------------- */
-nav {
-  text-align: center;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.6);
-}
-
-nav button {
-  margin: 5px;
-  padding: 8px 12px;
-  cursor: pointer;
-  background: #1e90ff;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  font-weight: bold;
-}
-
-/* ---------------------------------
-   SECTIONS
----------------------------------- */
-.section {
-  display: none;
-  padding: 18px;
-  max-width: 980px;
-  margin: 20px auto;
-  background: rgba(0, 0, 0, 0.55);
-  border-radius: 8px;
-}
-
-.section.visible,
-.section:not(.hidden) {
-  display: block;
-}
-
-/* ---------------------------------
-   PASSWORD POPUP
----------------------------------- */
-#passwordBox {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 25px;
-  background: #ffffffee;
-  border-radius: 12px;
-  box-shadow: 0 0 20px #0005;
-  z-index: 9999;
-  text-align: center;
-  width: 320px;
-}
-
-#passwordBox input {
-  width: 100%;
-  padding: 8px;
-  font-size: 16px;
-  margin: 10px 0;
-}
-
-#passwordBox button {
-  width: 100%;
-  padding: 8px;
-  background: #1e90ff;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-}
-
-/* ---------------------------------
-   BUTTONS
----------------------------------- */
-.primary {
-  background: #1e90ff;
-  color: #fff;
-  padding: 8px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-/* ---------------------------------
-   GALLERY & DOWNLOAD LIST
----------------------------------- */
-.thumbWrap img,
-.dlThumb {
-  width: 180px;
-  height: 120px;
-  object-fit: cover;
-  margin: 6px;
-  border-radius: 6px;
-}
-
-.dlWrap {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-/* ---------------------------------
-   PREVIEW GENERATED QSL
----------------------------------- */
-.preview img {
-  max-width: 100%;
-  border-radius: 6px;
-}
-
-/* ---------------------------------
-   CREATE FORM - LARGE LAYOUT
----------------------------------- */
-.wideForm {
-  width: 95%;
-  max-width: 1200px;
-  margin: auto;
-}
-
-.twoColumns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 25px;
-}
-
-.twoColumns input,
-.twoColumns textarea {
-  width: 100%;
-  font-size: 18px;
-  padding: 5px;
-}
+header { text-align:center; padding:20px; background:rgba(0,0,0,0.45); }
+.logo {width: 140px; margin-bottom: 10px; }
+nav { text-align:center; padding:12px; background:rgba(0,0,0,0.6); }
+nav button { margin:5px; padding:8px 12px; cursor:pointer; border-radius:6px; border:none; background:rgba(255,255,255,0.06); color:#fff; }
+.section { display:none; padding:18px; max-width:980px; margin:20px auto; background:rgba(0,0,0,0.55); border-radius:8px; }
+.section.visible, .section:not(.hidden) { display:block; }
+.box { width:320px; margin:18px auto; padding:12px; background:rgba(255,255,255,0.95); color:#000; border-radius:8px; text-align:center; z-index:9999; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); box-shadow:0 8px 30px #0006;}
+.hidden { display:none !important; }
+.primary { background:#1e90ff; color:#fff; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; }
+.thumbWrap img, .dlThumb { width:180px; height:120px; object-fit:cover; margin:6px; border-radius:6px; display:inline-block; }
+.dlWrap { display:flex; gap:10px; align-items:center; margin-bottom:12px; }
+.preview img { max-width:100%; border-radius:6px; }
+.wideForm { width:95%; max-width:1200px; margin:auto; }
+.twoColumns { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.twoColumns input, .twoColumns textarea { width:100%; padding:8px; font-size:16px; box-sizing:border-box; }
+.dlWrap button { margin-left:6px; }
