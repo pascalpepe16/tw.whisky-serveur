@@ -278,26 +278,22 @@ app.get("/file", async (req, res) => {
     const info = await cloudinary.api.resource(public_id, { resource_type: "image" });
     const ctx = parseContext(info.context || {});
 
-    // increment downloads (best effort)
-    try {
-      const downloads = (Number(ctx.downloads) || 0) + 1;
-      const newCtxStr = buildContext({ ...ctx, downloads });
-      await cloudinary.uploader.explicit(public_id, { type: "upload", context: `entry=${newCtxStr}` });
-    } catch (e) {
-      console.warn("Could not update downloads count:", e?.message || e);
-    }
-
     const ext = info.format || "jpg";
-    const safeName = ((ctx.indicatif || public_id).replace(/\W+/g, "_")).slice(0, 140);
+    const safeName = ((ctx.indicatif || public_id).replace(/\W+/g, "_")).slice(0, 120);
     const filename = `${safeName}_${ctx.date || ""}.${ext}`;
 
-    const r = await axios.get(info.secure_url, { responseType: "arraybuffer" });
-    res.setHeader("Content-Type", `image/${ext}`);
+    // Télécharger l'image originelle
+    const file = await axios.get(info.secure_url, { responseType: "arraybuffer" });
+
+    res.setHeader("Content-Type", info.resource_type === "image" ? `image/${ext}` : "application/octet-stream");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    return res.send(Buffer.from(r.data));
+
+    return res.send(Buffer.from(file.data));
   } catch (err) {
-    console.error("FILE ERROR:", err?.message || err);
+    console.error("FILE ERROR:", err.message);
     return res.status(500).send("Impossible de télécharger la QSL");
+
+
   }
 });
 
