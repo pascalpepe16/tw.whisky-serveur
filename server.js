@@ -292,10 +292,9 @@ app.get("/file", async (req, res) => {
   } catch (err) {
     console.error("FILE ERROR:", err.message);
     return res.status(500).send("Impossible de télécharger la QSL");
-
-
   }
 });
+
 
 // SPA fallback
 app.get("*", (req, res) => {
