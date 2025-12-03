@@ -1,94 +1,97 @@
-<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TANGO WHISKY eQSL</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header>
-    <img src="https://res.cloudinary.com/dqpvrfjeu/image/upload/v1763588704/akyt1anm1inwmygj3vfz.png" class="logo" alt="TW">
-    <h1>TANGO WHISKY eQSL</h1>
-  </header>
+const API_URL = location.origin;
 
-  <nav>
-    <button onclick="showSection('home')">Accueil</button>
-    <button onclick="openGallery()">Galerie</button>
-    <button onclick="openCreate()">Créer / Ajouter</button>
-    <button onclick="showSection('download')">Télécharger</button>
-  </nav>
+function showSection(id) {
+  document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+  if (id === "gallery") loadGallery();
+}
 
-  <div id="passwordBox" class="box hidden" aria-hidden="true">
-    <h3>Mot de passe</h3>
-    <input type="password" id="pwd" placeholder="Code administrateur">
-    <div style="margin-top:12px">
-      <button onclick="verifyPassword()" class="primary">Valider</button>
-      <button onclick="document.getElementById('passwordBox').style.display='none'" style="margin-left:8px">Annuler</button>
-    </div>
-  </div>
+let sectionToOpen = null;
+function openGallery() { showPassword('gallery'); }
+function openCreate() { showPassword('create'); }
 
-  <main>
-    <section id="home" class="section visible">
-      <h2>Bienvenue</h2>
-      <p>Portail eQSL TANGO WHISKY</p>
-    </section>
+function showPassword(target) {
+  sectionToOpen = target;
+  document.getElementById("passwordBox").style.display = 'block';
+}
+function verifyPassword() {
+  if (document.getElementById("pwd").value === "123456") {
+    document.getElementById("passwordBox").style.display = 'none';
+    showSection(sectionToOpen);
+    document.getElementById("pwd").value = '';
+  } else alert("Mot de passe incorrect");
+}
 
-    <section id="gallery" class="section hidden">
-      <h2>Galerie</h2>
-      <div id="galleryContent">Chargement…</div>
-    </section>
+async function loadGallery() {
+  const box = document.getElementById("galleryContent");
+  box.innerHTML = "Chargement…";
+  try {
+    const res = await fetch(API_URL + "/qsl");
+    const list = await res.json();
+    if (!list.length) { box.innerHTML = "Aucune QSL"; return; }
+    box.innerHTML = "";
+    list.forEach(q => {
+      const div = document.createElement("div");
+      div.className = "thumbWrap";
+      const img = document.createElement("img");
+      img.src = q.thumb;
+      img.title = `${q.indicatif} ${q.date}`;
+      div.appendChild(img);
+      box.appendChild(div);
+    });
+  } catch (e) {
+    box.innerHTML = "Erreur de chargement";
+  }
+}
+loadGallery();
 
-    <section id="create" class="section hidden">
-      <h2>Créer / Générer une QSL</h2>
+document.getElementById("genForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const preview = document.getElementById("genPreview");
+  preview.innerHTML = "Génération…";
+  try {
+    const res = await fetch(API_URL + "/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!data.success) { preview.innerHTML = "Erreur: " + data.error; return; }
+    preview.innerHTML = `<img src="${data.qsl.url}" class="generatedQSL">`;
+    e.target.reset();
+    loadGallery();
+  } catch (err) {
+    preview.innerHTML = "Erreur réseau";
+  }
+};
 
-      <form id="genForm" enctype="multipart/form-data" class="wideForm">
-        <div class="twoColumns">
-          <div>
-            <label>Indicatif :</label>
-            <input type="text" name="indicatif" required>
-
-            <label>Date :</label>
-            <input type="date" name="date">
-
-            <label>UTC :</label>
-            <input type="time" name="time">
-
-            <label>Bande :</label>
-            <input type="text" name="band" placeholder="11m">
-
-            <label>Mode :</label>
-            <input type="text" name="mode" placeholder="USB">
-
-            <label>Report :</label>
-            <input type="text" name="report" placeholder="59">
-          </div>
-
-          <div>
-            <label>Note (max 120 chars) :</label>
-            <textarea name="note" maxlength="120" style="height:140px"></textarea>
-
-            <label>Image QSL :</label>
-            <input type="file" name="qsl" accept="image/*" required>
-          </div>
-        </div>
-
-        <button class="primary" type="submit">Générer QSL</button>
-      </form>
-
-      <div id="genPreview" class="preview"></div>
-    </section>
-
-    <section id="download" class="section hidden">
-      <h2>Télécharger</h2>
-      <input id="dlCall" placeholder="Votre indicatif">
-      <button id="btnSearch" class="primary">Rechercher</button>
-      <div id="dlPreview"></div>
-    </section>
-  </main>
-
-  <footer>TANGO WHISKY © 2025</footer>
-
-  <script src="script.js"></script>
-</body>
-</html>
+document.getElementById("btnSearch").onclick = async () => {
+  const call = (document.getElementById("dlCall").value || "").trim().toUpperCase();
+  if (!call) return alert("Entrez un indicatif");
+  const box = document.getElementById("dlPreview");
+  box.innerHTML = "Recherche…";
+  try {
+    const res = await fetch(API_URL + "/download/" + call);
+    const list = await res.json();
+    if (!list.length) { box.innerHTML = "Aucune QSL trouvée"; return; }
+    box.innerHTML = "";
+    list.forEach(q => {
+      const wrap = document.createElement("div");
+      wrap.className = "dlWrap";
+      const img = document.createElement("img"); img.src = q.thumb; img.className = "dlThumb";
+      wrap.appendChild(img);
+      const view = document.createElement("button"); view.textContent = "Visualiser"; view.className='primary';
+      view.onclick = () => window.open(q.url, "_blank");
+      const dl = document.createElement("button"); dl.textContent = "Télécharger"; dl.className='primary';
+      dl.onclick = () => {
+        const a = document.createElement("a");
+        a.href = API_URL + "/file?pid=" + encodeURIComponent(q.public_id);
+        a.download = `${q.indicatif}_${q.date}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+      wrap.appendChild(view); wrap.appendChild(dl);
+      box.appendChild(wrap);
+    });
+  } catch (e) {
+    box.innerHTML = "Erreur réseau";
+  }
+};
