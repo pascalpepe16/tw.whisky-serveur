@@ -14,25 +14,24 @@
 
   <nav>
     <button onclick="showSection('home')">Accueil</button>
-    <button onclick="openProtected('gallery')">Galerie</button>
-    <button onclick="openProtected('create')">Créer / Ajouter</button>
+    <button onclick="openGallery()">Galerie</button>
+    <button onclick="openCreate()">Créer / Ajouter</button>
     <button onclick="showSection('download')">Télécharger</button>
   </nav>
 
-  <!-- PASSWORD POPUP (hidden until requested) -->
   <div id="passwordBox" class="box hidden" aria-hidden="true">
-    <h3>Code administrateur</h3>
-    <input type="password" id="pwd" placeholder="Code">
-    <div style="margin-top:10px">
-      <button class="primary" onclick="verifyPassword()">Valider</button>
-      <button onclick="closePassword()">Annuler</button>
+    <h3>Mot de passe</h3>
+    <input type="password" id="pwd" placeholder="Code administrateur">
+    <div style="margin-top:12px">
+      <button onclick="verifyPassword()" class="primary">Valider</button>
+      <button onclick="document.getElementById('passwordBox').style.display='none'" style="margin-left:8px">Annuler</button>
     </div>
   </div>
 
   <main>
     <section id="home" class="section visible">
       <h2>Bienvenue</h2>
-      <p>Portail eQSL TANGO WHISKY —  télécharger.</p>
+      <p>Portail eQSL TANGO WHISKY</p>
     </section>
 
     <section id="gallery" class="section hidden">
@@ -46,24 +45,35 @@
       <form id="genForm" enctype="multipart/form-data" class="wideForm">
         <div class="twoColumns">
           <div>
-            <label>Indicatif :</label><input type="text" name="indicatif" required>
-            <label>Date :</label><input type="date" name="date">
-            <label>UTC :</label><input type="time" name="time">
-            <label>Bande :</label><input type="text" name="band" placeholder="ex: 20">
-            <label>Mode :</label><input type="text" name="mode" placeholder="ex: SSB">
-            <label>Report :</label><input type="text" name="report" placeholder="ex: 59">
+            <label>Indicatif :</label>
+            <input type="text" name="indicatif" required>
+
+            <label>Date :</label>
+            <input type="date" name="date">
+
+            <label>UTC :</label>
+            <input type="time" name="time">
+
+            <label>Bande :</label>
+            <input type="text" name="band" placeholder="11m">
+
+            <label>Mode :</label>
+            <input type="text" name="mode" placeholder="USB">
+
+            <label>Report :</label>
+            <input type="text" name="report" placeholder="59">
           </div>
+
           <div>
-            <label>Note (max 120 caractères) :</label>
+            <label>Note (max 120 chars) :</label>
             <textarea name="note" maxlength="120" style="height:140px"></textarea>
-            <label>Image QSL (obligatoire) :</label>
+
+            <label>Image QSL :</label>
             <input type="file" name="qsl" accept="image/*" required>
           </div>
         </div>
 
-        <div style="margin-top:14px;text-align:center">
-          <button class="primary" type="submit">Générer & Envoyer</button>
-        </div>
+        <button class="primary" type="submit">Générer QSL</button>
       </form>
 
       <div id="genPreview" class="preview"></div>
@@ -71,22 +81,13 @@
 
     <section id="download" class="section hidden">
       <h2>Télécharger</h2>
-      <div style="max-width:700px;margin:0 auto;display:flex;gap:8px;">
-        <input id="dlCall" placeholder="Votre indicatif" style="flex:1;padding:10px">
-        <button id="btnSearch" class="primary">Rechercher</button>
-      </div>
-      <div id="dlPreview" style="margin-top:12px"></div>
+      <input id="dlCall" placeholder="Votre indicatif">
+      <button id="btnSearch" class="primary">Rechercher</button>
+      <div id="dlPreview"></div>
     </section>
   </main>
 
- <footer>
-        <div class="container">
-            <p>&copy;2025 Tango Whisky eqsl
-
-            </p>
-            <p>73'S de l'équipe Tango Whisky </p>
-        </div>
-    </footer>
+  <footer>TANGO WHISKY © 2025</footer>
 
   <script src="script.js"></script>
 </body>
