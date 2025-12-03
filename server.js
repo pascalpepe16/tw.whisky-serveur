@@ -30,33 +30,19 @@ function buildContext(obj = {}) {
 }
 function parseContext(ctx) {
   if (!ctx) return {};
-  function parseContext(ctx) {
-  if (!ctx) return {};
-
-  // Cas 1 : context.custom.entry
-  let raw = ctx.custom?.entry;
-
-  // Cas 2 : context.entry
-  if (!raw && typeof ctx.entry === "string") raw = ctx.entry;
-
-  // Cas 3 : Cloudinary renvoie directement { indicatif: "...", date: "..."}
-  if (!raw && typeof ctx === "object") {
-    const simple = {};
-    for (const key in ctx) {
-      if (typeof ctx[key] === "string") simple[key] = ctx[key];
-    }
-    return simple;
+  if (ctx.custom && ctx.custom.entry) {
+    return ctx.custom.entry.split("|").reduce((acc,p)=>{ const [k,...r]=p.split('='); acc[k]=decodeURIComponent(r.join('=')||''); return acc; }, {});
   }
-
-  if (!raw) return {};
-
-  return raw.split("|").reduce((acc, p) => {
-    const [k, ...rest] = p.split("=");
-    acc[k] = decodeURIComponent(rest.join("="));
-    return acc;
-  }, {});
+  if (typeof ctx === 'string') {
+    return ctx.split("|").reduce((acc,p)=>{ const [k,...r]=p.split('='); acc[k]=decodeURIComponent(r.join('=')||''); return acc; }, {});
+  }
+  if (typeof ctx === 'object') {
+    const out={};
+    for(const k of Object.keys(ctx)) if (typeof ctx[k]==='string') out[k]=ctx[k];
+    return out;
+  }
+  return {};
 }
-
 function wrapText(text='', max=32){ if(!text) return ''; const words=String(text).trim().split(/\s+/); const lines=[]; let line=''; for(const w of words){ if((line + ' ' + w).trim().length>max){ if(line.trim()) lines.push(line.trim()); line = w; } else { line = (line + ' ' + w).trim(); }} if(line.trim()) lines.push(line.trim()); return lines.join('\n'); }
 
 app.get('/health',(req,res)=>res.json({ok:true}));
