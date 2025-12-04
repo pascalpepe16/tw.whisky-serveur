@@ -1,14 +1,19 @@
+/* ---------- BACKGROUND / GLOBAL ---------- */
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
   color: #fff;
-  background: url("https://res.cloudinary.com/dqpvrfjeu/image/upload/v1763731491/r45ocw9z3wnvu1fcqnus.jpg") center/cover fixed no-repeat;
+  background: url("https://res.cloudinary.com/dqpvrfjeu/image/upload/v1763731491/r45ocw9z3wnvu1fcqnus.jpg")
+    center/cover fixed no-repeat;
 }
+
+/* ---------- HEADER ---------- */
 
 header {
   text-align: center;
   padding: 20px;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .logo {
@@ -16,39 +21,63 @@ header {
   margin-bottom: 10px;
 }
 
+/* ---------- NAVIGATION ---------- */
+
 nav {
   text-align: center;
   padding: 12px;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
 }
 
 nav button {
   margin: 5px;
   padding: 8px 12px;
   cursor: pointer;
+  border-radius: 6px;
 }
+
+/* ---------- SECTIONS ---------- */
 
 .section {
   display: none;
   padding: 18px;
   max-width: 980px;
   margin: 20px auto;
-  background: rgba(0,0,0,0.55);
+  background: rgba(0, 0, 0, 0.55);
   border-radius: 8px;
 }
 
-.section.visible {
+.section.visible,
+.section:not(.hidden) {
   display: block;
 }
 
-.box {
-  width: 320px;
-  margin: 18px auto;
-  padding: 12px;
-  background: rgba(0,0,0,0.7);
-  border-radius: 8px;
-  text-align: center;
+/* ---------- POPUP MOT DE PASSE ---------- */
+
+#passwordBox {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 25px;
+  background: #ffffffee;
+  border-radius: 12px;
+  box-shadow: 0 0 20px #0005;
+  z-index: 9999;
+  display: none; /* Masqué par défaut (important !) */
 }
+
+#passwordBox.show {
+  display: block;
+}
+
+#passwordBox input {
+  width: 90%;
+  padding: 8px;
+  margin-bottom: 10px;
+}
+
+/* ---------- BUTTONS ---------- */
 
 .primary {
   background: #1e90ff;
@@ -59,13 +88,18 @@ nav button {
   cursor: pointer;
 }
 
-.thumbWrap img, .dlThumb {
+/* ---------- GALLERY THUMBNAILS ---------- */
+
+.thumbWrap img,
+.dlThumb {
   width: 180px;
   height: 120px;
   object-fit: cover;
   margin: 6px;
   border-radius: 6px;
 }
+
+/* ---------- DOWNLOAD WRAP ---------- */
 
 .dlWrap {
   display: flex;
@@ -74,27 +108,14 @@ nav button {
   margin-bottom: 12px;
 }
 
+/* ---------- PREVIEW IMAGE ---------- */
+
 .preview img {
   max-width: 100%;
   border-radius: 6px;
 }
 
-.popup {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 25px;
-  background: #ffffffee;
-  color: black;
-  border-radius: 12px;
-  box-shadow: 0 0 20px #0005;
-  z-index: 9999;
-}
-
-.hidden {
-  display: none;
-}
+/* ---------- FORM CREATE ---------- */
 
 .wideForm {
   width: 95%;
@@ -112,4 +133,27 @@ nav button {
 .twoColumns textarea {
   width: 100%;
   font-size: 18px;
+}
+
+textarea {
+  background: #ffffffaa;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+input[type="text"],
+input[type="file"] {
+  background: #ffffffaa;
+  padding: 6px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+}
+
+/* ---------- FOOTER ---------- */
+
+footer {
+  text-align: center;
+  padding: 15px;
+  background: rgba(0,0,0,0.5);
+  margin-top: 20px;
 }
