@@ -1,30 +1,55 @@
 const API_URL = location.origin;
 
+// -------------------------------------------
+// GESTION DES SECTIONS
+// -------------------------------------------
 function showSection(id) {
   document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
+
   if (id === "gallery") loadGallery();
 }
 
 let sectionToOpen = null;
+
+// Ouverture protégée
 function openGallery() {
   sectionToOpen = "gallery";
-  document.getElementById("passwordBox").classList.remove("hidden");
+  openPasswordPopup();
 }
+
 function openCreate() {
   sectionToOpen = "create";
+  openPasswordPopup();
+}
+
+// Le téléchargement est libre → pas de mot de passe
+function openDownload() {
+  showSection("download");
+}
+
+// -------------------------------------------
+// POPUP MOT DE PASSE
+// -------------------------------------------
+function openPasswordPopup() {
   document.getElementById("passwordBox").classList.remove("hidden");
 }
 
 function verifyPassword() {
-  if (document.getElementById("pwd").value === "123456") {
+  const pwd = document.getElementById("pwd").value;
+
+  if (pwd === "123456") {
     document.getElementById("passwordBox").classList.add("hidden");
     showSection(sectionToOpen);
+    document.getElementById("pwd").value = "";
   } else {
     alert("Mot de passe incorrect");
   }
 }
 
+// -------------------------------------------
+// GALERIE
+// -------------------------------------------
 async function loadGallery() {
   const box = document.getElementById("galleryContent");
   box.innerHTML = "Chargement…";
@@ -39,23 +64,30 @@ async function loadGallery() {
     }
 
     box.innerHTML = "";
+
     list.forEach(q => {
       const div = document.createElement("div");
       div.className = "thumbWrap";
+
       const img = document.createElement("img");
       img.src = q.thumb;
       img.title = `${q.indicatif} ${q.date}`;
+
       div.appendChild(img);
       box.appendChild(div);
     });
-  } catch {
+
+  } catch (e) {
     box.innerHTML = "Erreur de chargement";
   }
 }
 
+// -------------------------------------------
 // GENERATION QSL
-document.getElementById("genForm").onsubmit = async (e) => {
+// -------------------------------------------
+document.getElementById("genForm").onsubmit = async e => {
   e.preventDefault();
+
   const fd = new FormData(e.target);
   const preview = document.getElementById("genPreview");
   preview.innerHTML = "Génération…";
@@ -73,15 +105,19 @@ document.getElementById("genForm").onsubmit = async (e) => {
       return;
     }
 
-    preview.innerHTML = `<img src="${data.qsl.url}">`;
+    preview.innerHTML = `<img src="${data.qsl.url}" style="max-width:100%">`;
+
     e.target.reset();
     loadGallery();
-  } catch {
+
+  } catch (err) {
     preview.innerHTML = "Erreur réseau";
   }
 };
 
-// TELECHARGEMENT
+// -------------------------------------------
+// TELECHARGEMENT PAR INDICATIF
+// -------------------------------------------
 document.getElementById("btnSearch").onclick = async () => {
   const call = document.getElementById("dlCall").value.trim().toUpperCase();
   if (!call) return alert("Entrez un indicatif");
@@ -115,11 +151,14 @@ document.getElementById("btnSearch").onclick = async () => {
 
       const dl = document.createElement("button");
       dl.textContent = "Télécharger";
+
       dl.onclick = () => {
         const a = document.createElement("a");
         a.href = API_URL + "/file?pid=" + encodeURIComponent(q.public_id);
         a.download = `${q.indicatif}_${q.date}.jpg`;
+        document.body.appendChild(a);
         a.click();
+        a.remove();
       };
 
       wrap.appendChild(view);
@@ -127,7 +166,7 @@ document.getElementById("btnSearch").onclick = async () => {
       box.appendChild(wrap);
     });
 
-  } catch {
+  } catch (e) {
     box.innerHTML = "Erreur réseau";
   }
 };
