@@ -1,55 +1,31 @@
+script js :
 const API_URL = location.origin;
 
-// -------------------------------------------
-// GESTION DES SECTIONS
-// -------------------------------------------
 function showSection(id) {
   document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
-
   if (id === "gallery") loadGallery();
 }
 
 let sectionToOpen = null;
-
-// Ouverture protégée
 function openGallery() {
-  sectionToOpen = "gallery";
-  openPasswordPopup();
+  showPassword('gallery');
 }
-
 function openCreate() {
-  sectionToOpen = "create";
-  openPasswordPopup();
+  showPassword('create');
 }
 
-// Le téléchargement est libre → pas de mot de passe
-function openDownload() {
-  showSection("download");
-}
-
-// -------------------------------------------
-// POPUP MOT DE PASSE
-// -------------------------------------------
-function openPasswordPopup() {
+function showPassword(target) {
+  sectionToOpen = target;
   document.getElementById("passwordBox").classList.remove("hidden");
 }
-
 function verifyPassword() {
-  const pwd = document.getElementById("pwd").value;
-
-  if (pwd === "123456") {
+  if (document.getElementById("pwd").value === "123456") {
     document.getElementById("passwordBox").classList.add("hidden");
     showSection(sectionToOpen);
-    document.getElementById("pwd").value = "";
-  } else {
-    alert("Mot de passe incorrect");
-  }
+  } else alert("Mot de passe incorrect");
 }
 
-// -------------------------------------------
-// GALERIE
-// -------------------------------------------
 async function loadGallery() {
   const box = document.getElementById("galleryContent");
   box.innerHTML = "Chargement…";
@@ -64,7 +40,6 @@ async function loadGallery() {
     }
 
     box.innerHTML = "";
-
     list.forEach(q => {
       const div = document.createElement("div");
       div.className = "thumbWrap";
@@ -81,15 +56,16 @@ async function loadGallery() {
     box.innerHTML = "Erreur de chargement";
   }
 }
+loadGallery();
 
-// -------------------------------------------
-// GENERATION QSL
-// -------------------------------------------
+// ----------------------------------------
+//   GENERATION QSL
+// ----------------------------------------
 document.getElementById("genForm").onsubmit = async e => {
   e.preventDefault();
-
   const fd = new FormData(e.target);
   const preview = document.getElementById("genPreview");
+
   preview.innerHTML = "Génération…";
 
   try {
@@ -115,9 +91,9 @@ document.getElementById("genForm").onsubmit = async e => {
   }
 };
 
-// -------------------------------------------
-// TELECHARGEMENT PAR INDICATIF
-// -------------------------------------------
+// ----------------------------------------
+//   TELECHARGER PAR INDICATIF
+// ----------------------------------------
 document.getElementById("btnSearch").onclick = async () => {
   const call = document.getElementById("dlCall").value.trim().toUpperCase();
   if (!call) return alert("Entrez un indicatif");
@@ -154,7 +130,11 @@ document.getElementById("btnSearch").onclick = async () => {
 
       dl.onclick = () => {
         const a = document.createElement("a");
-        a.href = API_URL + "/file?pid=" + encodeURIComponent(q.public_id);
+
+        // PUBLIC_ID SAFE POUR LE SERVEUR
+       a.href = API_URL + "/file?pid=" + encodeURIComponent(q.public_id);
+
+
         a.download = `${q.indicatif}_${q.date}.jpg`;
         document.body.appendChild(a);
         a.click();
