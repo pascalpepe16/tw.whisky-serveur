@@ -1,6 +1,3 @@
-// server.js - TW eQSL (corrigé)
-// Requis en env: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
-
 import express from "express";
 import cors from "cors";
 import fileUpload from "express-fileupload";
@@ -10,6 +7,7 @@ import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// Resolve __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -24,67 +22,49 @@ app.use(
 );
 app.use(express.static(path.join(__dirname, "public")));
 
-// Cloudinary config (via env)
+// Cloudinary config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// --- Helpers ---
+// Helpers
 function buildContext(obj = {}) {
   return Object.entries(obj)
-    .map(([k, v]) => `${k}=${encodeURIComponent(String(v || ""))}`)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v || "")}`)
     .join("|");
 }
 
 function parseContext(ctx) {
-  // ctx may be object like { custom: { entry: 'k=v|k2=v2' } } or direct string
-  try {
-    if (!ctx) return {};
-    if (typeof ctx === "string") {
-      return ctx.split("|").reduce((acc, p) => {
-        const [k, ...rest] = p.split("=");
-        acc[k] = decodeURIComponent(rest.join("=") || "");
-        return acc;
-      }, {});
-    }
-    if (ctx.custom && ctx.custom.entry) {
-      return ctx.custom.entry.split("|").reduce((acc, p) => {
-        const [k, ...rest] = p.split("=");
-        acc[k] = decodeURIComponent(rest.join("=") || "");
-        return acc;
-      }, {});
-    }
-    // older forms: ctx may be an object map
-    if (typeof ctx === "object") {
-      const out = {};
-      Object.keys(ctx).forEach((k) => {
-        if (typeof ctx[k] === "string") out[k] = ctx[k];
-      });
-      return out;
-    }
-    return {};
-  } catch {
-    return {};
+  if (!ctx) return {};
+  if (ctx.custom && ctx.custom.entry) ctx = ctx.custom.entry;
+
+  if (typeof ctx === "string") {
+    return ctx.split("|").reduce((acc, p) => {
+      const [k, ...rest] = p.split("=");
+      acc[k] = decodeURIComponent(rest.join("=") || "");
+      return acc;
+    }, {});
   }
+
+  if (typeof ctx === "object") return ctx;
+  return {};
 }
 
 function wrapText(text = "", max = 32) {
   if (!text) return "";
-  const words = String(text).trim().split(/\s+/);
-  const lines = [];
+  const words = text.split(/\s+/);
+  const out = [];
   let line = "";
   for (const w of words) {
     if ((line + " " + w).trim().length > max) {
-      if (line.trim()) lines.push(line.trim());
+      out.push(line.trim());
       line = w;
-    } else {
-      line = (line + " " + w).trim();
-    }
+    } else line = (line + " " + w).trim();
   }
-  if (line.trim()) lines.push(line.trim());
-  return lines.join("\n");
+  if (line.trim()) out.push(line.trim());
+  return out.join("\n");
 }
 
 function escapeXml(str = "") {
@@ -96,70 +76,48 @@ function escapeXml(str = "") {
     .replace(/>/g, "&gt;");
 }
 
-// --- Endpoints ---
-
+// Routes
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// List QSLs (pull resources from Cloudinary folder TW-eQSL)
+// =======================================
+// LIST QSL
+// =======================================
 app.get("/qsl", async (req, res) => {
   try {
-    const result = await cloudinary.search
+    const r = await cloudinary.search
       .expression("folder:TW-eQSL")
       .sort_by("created_at", "desc")
       .max_results(500)
       .execute();
 
-    const list = (result.resources || []).map((r) => {
-      const ctx = parseContext(r.context);
+    const list = r.resources.map((img) => {
+      const ctx = parseContext(img.context);
       return {
-        public_id: r.public_id,
-        url: r.secure_url,
-        thumb: r.secure_url.replace("/upload/", "/upload/w_300/"),
-        indicatif: ctx.indicatif || "",
-        date: ctx.date || "",
-        time: ctx.time || "",
-        band: ctx.band || "",
-        mode: ctx.mode || "",
-        report: ctx.report || "",
-        note: ctx.note || "",
+        public_id: img.public_id,
+        url: img.secure_url,
+        thumb: img.secure_url.replace("/upload/", "/upload/w_300/"),
+        ...ctx,
         downloads: Number(ctx.downloads || 0),
-        format: r.format || "jpg",
+        format: img.format,
       };
     });
 
     res.json(list);
   } catch (err) {
-    console.error("GET /qsl ERROR", err?.message || err);
-    res.status(500).json({ error: "Impossible de lister QSL (Cloudinary)" });
+    console.log(err);
+    res.status(500).json({ error: "Erreur Cloudinary" });
   }
 });
 
-// Upload + generate composed QSL and send to Cloudinary (with context)
+// =======================================
+// UPLOAD + GENERATE QSL
+// =======================================
 app.post("/upload", async (req, res) => {
   try {
-    if (!req.files || !req.files.qsl) {
-      return res.status(400).json({ success: false, error: "Aucune image reçue" });
-    }
+    if (!req.files || !req.files.qsl)
+      return res.json({ success: false, error: "Aucune image reçue" });
 
-    // require Cloudinary env
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      return res.status(500).json({ success: false, error: "Cloudinary non configuré (variables d'environnement manquantes)" });
-    }
-
-    const file = req.files.qsl;
-
-    // Resize user image keeping aspect ratio, max 1400x900
-    const userSharp = sharp(file.tempFilePath).resize({
-      width: 1400,
-      height: 900,
-      fit: "inside",
-      withoutEnlargement: true,
-    });
-
-    const meta = await userSharp.metadata();
-    const W = meta.width || 1400;
-    const H = meta.height || 900;
-    const panelWidth = 350;
+    const f = req.files.qsl;
 
     const indicatif = (req.body.indicatif || "").toUpperCase();
     const date = req.body.date || "";
@@ -169,154 +127,15 @@ app.post("/upload", async (req, res) => {
     const report = req.body.report || "";
     const note = wrapText(req.body.note || "", 32);
 
-    // Build SVG panel; note as tspans for multiline
-    const noteTspans = note
-      .split("\n")
-      .map((ln, i) => `<tspan x="20" dy="${i === 0 ? 0 : 20}">${escapeXml(ln)}</tspan>`)
-      .join("");
-
-    const svg = `<?xml version="1.0" encoding="UTF-8"?>
-      <svg xmlns="http://www.w3.org/2000/svg" width="${panelWidth}" height="${H}">
-        <rect width="100%" height="100%" fill="white"/>
-        <text x="20" y="60" font-size="42" font-weight="700" fill="black">${escapeXml(indicatif)}</text>
-        <text x="20" y="120" font-size="28" fill="black">Date : ${escapeXml(date)}</text>
-        <text x="20" y="160" font-size="28" fill="black">UTC  : ${escapeXml(time)}</text>
-        <text x="20" y="200" font-size="28" fill="black">Bande : ${escapeXml(band)}</text>
-        <text x="20" y="240" font-size="28" fill="black">Mode : ${escapeXml(mode)}</text>
-        <text x="20" y="280" font-size="28" fill="black">Report : ${escapeXml(report)}</text>
-        <text x="20" y="340" font-size="22" fill="black">${noteTspans}</text>
-      </svg>`;
-
-    const svgBuffer = Buffer.from(svg);
-    const userBuffer = await userSharp.toBuffer();
-
-    // Compose final canvas (width big enough to hold both)
-    const finalBuffer = await sharp({
-      create: { width: W + panelWidth, height: H, channels: 3, background: "white" },
-    })
-      .composite([
-        { input: userBuffer, left: 0, top: 0 },
-        { input: svgBuffer, left: W, top: 0 },
-      ])
-      .jpeg({ quality: 92 })
-      .toBuffer();
-
-    // Build context metadata
-    const ctxStr = buildContext({
-      indicatif,
-      date,
-      time,
-      band,
-      mode,
-      report,
-      note,
-      downloads: 0,
+    const userImg = sharp(f.tempFilePath).resize(1400, 900, {
+      fit: "inside",
+      withoutEnlargement: true,
     });
+    const meta = await userImg.metadata();
+    const W = meta.width;
+    const H = meta.height;
+    const P = 350;
 
-    // Upload to Cloudinary with context
-    cloudinary.uploader.upload_stream({ folder: "TW-eQSL", context: `entry=${ctxStr}` }, (err, result) => {
-      if (err) {
-        console.error("Cloudinary upload error:", err);
-        return res.status(500).json({ success: false, error: err.message || "Upload Cloudinary failed" });
-      }
-
-      return res.json({
-        success: true,
-        qsl: {
-          public_id: result.public_id,
-          url: result.secure_url,
-          thumb: result.secure_url.replace("/upload/", "/upload/w_300/"),
-          indicatif,
-          date,
-          time,
-          band,
-          mode,
-          report,
-          note,
-          downloads: 0,
-        },
-      });
-    }).end(finalBuffer);
-  } catch (err) {
-    console.error("UPLOAD ERROR:", err?.message || err);
-    return res.status(500).json({ success: false, error: err?.message || "Erreur serveur lors de la génération" });
-  }
-});
-
-// Search by callsign (reads Cloudinary context)
-app.get("/download/:call", async (req, res) => {
-  try {
-    const call = (req.params.call || "").toUpperCase();
-    if (!call) return res.json([]);
-
-    const result = await cloudinary.search.expression("folder:TW-eQSL").sort_by("created_at", "desc").max_results(500).execute();
-
-    const list = (result.resources || [])
-      .map((r) => {
-        const ctx = parseContext(r.context);
-        return {
-          public_id: r.public_id,
-          url: r.secure_url,
-          thumb: r.secure_url.replace("/upload/", "/upload/w_300/"),
-          indicatif: ctx.indicatif || "",
-          date: ctx.date || "",
-          time: ctx.time || "",
-          band: ctx.band || "",
-          mode: ctx.mode || "",
-          report: ctx.report || "",
-          note: ctx.note || "",
-          downloads: Number(ctx.downloads || 0),
-          format: r.format || "jpg",
-        };
-      })
-      .filter((x) => (x.indicatif || "").toUpperCase() === call);
-
-    return res.json(list);
-  } catch (err) {
-    console.error("SEARCH ERROR", err?.message || err);
-    return res.status(500).json([]);
-  }
-});
-
-// Download file by public_id (returns bytes as attachment)
-app.get("/file", async (req, res) => {
-  try {
-    const public_id = req.query.pid;
-    if (!public_id) return res.status(400).send("Missing pid");
-
-    // Get resource info
-    const info = await cloudinary.api.resource(public_id, { resource_type: "image" });
-    const ctx = parseContext(info.context || {});
-
-    // Best-effort increment downloads
-    try {
-      const downloads = (Number(ctx.downloads) || 0) + 1;
-      const newCtxStr = buildContext({ ...ctx, downloads });
-      await cloudinary.uploader.explicit(public_id, { type: "upload", context: `entry=${newCtxStr}` });
-    } catch (e) {
-      console.warn("Could not update downloads count:", e?.message || e);
-    }
-
-    const ext = info.format || "jpg";
-    const safeName = ((ctx.indicatif || public_id).replace(/\W+/g, "_")).slice(0, 140);
-    const filename = `${safeName}_${ctx.date || ""}.${ext}`;
-
-    // Fetch bytes from Cloudinary secure url then send as attachment
-    const r = await axios.get(info.secure_url, { responseType: "arraybuffer" });
-    res.setHeader("Content-Type", `image/${ext}`);
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    return res.send(Buffer.from(r.data));
-  } catch (err) {
-    console.error("FILE ERROR:", err?.message || err);
-    return res.status(500).send("Impossible de télécharger la QSL");
-  }
-});
-
-// SPA fallback
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public/index.html"));
-});
-
-// Start
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`TW-eQSL server listening on ${PORT}`));
+    const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${P}" height="${H}">
+      <rect wid
