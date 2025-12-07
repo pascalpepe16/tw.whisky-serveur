@@ -12,7 +12,8 @@
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "express-fileupload": "^1.4.3",
+   "express-fileupload": "^1.4.3",
+
 
     "sharp": "^0.33.3"
   },
